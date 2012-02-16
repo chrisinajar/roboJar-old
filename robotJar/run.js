@@ -16,6 +16,8 @@ bot.on('ready', function() {
 });
 bot.on('speak', jar.onSpeak);
 bot.on('newsong', jar.onNewSong);
+bot.on('registered', jar.onUserJoin);
+bot.on('deregistered', jar.onUserPart);
 
 
 // start up the console
