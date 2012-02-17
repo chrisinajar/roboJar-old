@@ -50,7 +50,6 @@ var j = {
 			c++;
 			this.db.save(obj, j[obj], function(er, doc) {
 				if (er) throw new Error(JSON.stringify(er));
-				j.log(doc);
 				j.log("Saved setting: " + doc.id);
 				if (--c == 0) {
 					h();
@@ -91,11 +90,22 @@ var j = {
 		this.bot = bot;
 		this.public.bot = bot;
 		bot.on('roomChanged',  function(data) {
+			var djs = [];
 			for (var user in data.users) {
 				user = data.users[user];
+				djs.push(user.userid);
 				if (typeof j.users[user.userid] == "undefined")
 					j.users[user.userid] = new User(user.userid, user.name);
 			}
+			for (var user in j.users) {
+				if (user.length < 24)
+					continue;
+				if (djs.indexOf(user) < 0) {
+					j.log('Purging stale user: ' + user);
+					delete j.users[user]
+				}
+			}
+			
 			this.room = data.room;
 		});
 		bot.roomRegister(room);
@@ -128,7 +138,7 @@ var j = {
 							if (typeof j.users[dj] != "undefined") {
 								var user = j.users[dj];
 								var idle = Math.floor(user.getIdleTime()/1000);
-								if (idle < 30)
+								if (idle < 300)
 									return;
 								var timeStr = Math.floor(idle/60)+':'+(idle%60);
 								if (timeStr.substr(-2,1) == ":") {
@@ -225,8 +235,6 @@ var j = {
 							if (typeof j.users[dj] != "undefined") {
 								var user = j.users[dj];
 								var idle = Math.floor(user.getIdleTime()/1000);
-								if (idle < 30)
-									return;
 								var timeStr = Math.floor(idle/60)+':'+(idle%60);
 								if (timeStr.substr(-2,1) == ":") {
 									timeStr = timeStr.substr(0, timeStr.length-1) + '0' + timeStr.substr(-1);
