@@ -4,10 +4,10 @@ var User = function(userid, name) {
 	this.userid = userid;
 	this.name = name;
 	this.idleTimer = (new Date()).getTime();
-	this.getIdleTime = function() {
-		return ((new Date()).getTime() - this.idleTimer);
-	}
 	j.userNames[name] = userid;
+}
+User.prototype.getIdleTime = function() {
+	return ((new Date()).getTime() - this.idleTimer);
 }
 
 var j = {
@@ -20,10 +20,15 @@ var j = {
 		'docawk': '4e1b661a4fe7d0314a05b6cb',
 		'cheep': '4dfff25ba3f75104e306e495',
 	},
-	settings: ['users', 'userNames'],
+	settings: {
+		'users': function() {
+			for(var id in j.users) for (var func in User.prototype)
+				j.users[id][func]=User.prototype[func];
+		}, 
+		'userNames': null,
+	},
 	loadSettings: function() {
-		for (var i = 0, k = j.settings.length; i<k; ++i) {
-			var obj = j.settings[i];
+		for (var obj in j.settings) {
 			this.db.get(obj, function(er, doc) {
 				if (er) {
 					if (er.reason == "missing") {
@@ -32,23 +37,34 @@ var j = {
 					}
 					throw new Error(JSON.stringify(er));
 				}
-				j.log("Loaded setting: " + obj);
-				j[obj]=doc;
+				j.log("Loaded setting: " + doc._id);
+				j[doc._id]=doc;
+				if (j.settings[doc._id])
+					j.settings[doc._id]();
 			});
 		}
 	},
 	saveSettings: function(h) {
-		var c = j.settings.length;
-		for (var i = 0, k = j.settings.length; i<k; ++i) {
-			var obj = j.settings[i];
+		var c = 0;
+		for (var obj in j.settings) {
+			c++;
 			this.db.save(obj, j[obj], function(er, doc) {
 				if (er) throw new Error(JSON.stringify(er));
-				j.log("Saved setting: " + obj);
+				j.log(doc);
+				j.log("Saved setting: " + doc.id);
 				if (--c == 0) {
 					h();
 				}
 			});
 		}
+	},
+	term: {
+		clearLine: function() { return '\u001b[0G'+'\u001b[2K';},
+		end: function() { return '\u001b[99G';},
+		down: function() { return '\u001b[E';},
+		up: function() { return '\u001b[F';},
+		save: function() { return '\u001b[s';},
+		restore: function() { return '\u001b[u';},
 	},
 	color: {
 		red: function(m) { return '\u001b[31m'+m+j.color.reset();},
@@ -58,10 +74,17 @@ var j = {
 	},
 	'public': {},
 	log: function(msg) {
+		j.rl.pause();
+		process.stdout.write(j.term.clearLine());
 		console.log(msg);
+		j.rl.prompt();
+		//process.stdout.write(j.term.end());
+		j.rl.resume();
 	},
+	
 	onLoad: function(util, bot, room) {
 		var cradle = require('cradle');
+		var http = require('http');
 		this.db = new(cradle.Connection)().database('robojar');
 		this.loadSettings();
 		this.util = util;
@@ -70,7 +93,8 @@ var j = {
 		bot.on('roomChanged',  function(data) {
 			for (var user in data.users) {
 				user = data.users[user];
-				j.users[user.userid] = new User(user.userid, user.name);
+				if (typeof j.users[user.userid] == "undefined")
+					j.users[user.userid] = new User(user.userid, user.name);
 			}
 			this.room = data.room;
 		});
@@ -93,18 +117,18 @@ var j = {
 			j.userNames[d.name] = d.userid;
 		}
 		if (d.text.substr(0,1) == "/") {
-			j.log(j.color.red(d.name + " ran " + d.text));
 			if (d.text == "/djs") {
+				j.log(j.color.red(d.name + " ran " + d.text));
 				// check if doc awk is in da house
-				var msg = "Idle Tymz: ";
+				var msg = '';
 				if (typeof j.users[j.specialUsers.docawk] == "undefined") {
 					j.bot.roomInfo(j.room, function(data) {
 						for (var dj in data.room.metadata.djs) {
 							dj = data.room.metadata.djs[dj];
 							if (typeof j.users[dj] != "undefined") {
 								var user = j.users[dj];
-								var idle = Math.round(user.getIdleTime()/1000);
-								if (idle < 300)
+								var idle = Math.floor(user.getIdleTime()/1000);
+								if (idle < 30)
 									return;
 								var timeStr = Math.floor(idle/60)+':'+(idle%60);
 								if (timeStr.substr(-2,1) == ":") {
@@ -115,11 +139,14 @@ var j = {
 								msg += user.name + ': magic? :: ';
 							}
 						}
-						j.bot.speak(msg);
+						if (msg.length == 0)
+							j.bot.speak("No one is idle.");
+						else
+							j.bot.speak('Idle: ' + msg);
 					});
 				}
+				return;
 			}
-			return;
 		}
 		j.log(j.color.blue(d.name)+": "+d.text);
 	},
@@ -139,16 +166,45 @@ var j = {
 	},
 	onVote: function() {
 	},
-	onNewSong: function() {
+	onNewSong: function(d) {
 		setTimeout(function(){
 			j.bot.vote('up');
-		}, (15*Math.random())+10)
+		}, (15*Math.random())+10);
+		
+		var song = d.room.metadata.current_song;
+		var data = {
+			roomName: d.room.name,
+			roomID: d.room.roomid,
+			roomURL: d.room.roomid,
+			playedBy: song.djname,
+			songArtist: song.metadata.artist,
+			songName: song.metadata.song,
+			secretID: 'auugnsogb92nflac825nwapbps94n2e3',
+		};
+		var options = {
+		  host: 'songtracker.vladimirkozyrev.com',
+		  port: 80,
+		  path: '/songPlayed?'
+		};
+		for (var d in data) {
+			options.path += d+'='+encodeURIComponent(data[d]);
+		}
+		options.path = options.path.substr(0, options.path.length-1);
+
+		require('http').request(options, function(res) {
+		  j.log("Got response: " + res.statusCode);
+		  j.log(res);
+		  j.res=res;
+		}).on('error', function(e) {
+		  j.log("Got error: " + e.message);
+		}).on('data', function(chunk) {
+		  j.log(chunk);
+		});
 	},
 
 	onCommand: function(msg) {
-		msg=msg.substr(1,msg.length-3);
-		if (msg == "undefined") {
-			process.stdout.write("roboJar> ");
+		if (msg == "undefined" || msg.length < 1) {
+			j.rl.prompt();
 			return;
 		}
 		if (msg.substr(0,2) == "j:") {
@@ -158,7 +214,7 @@ var j = {
 				} catch(e) {
 					j.util.puts(e.stack);
 				}
-				process.stdout.write("\nroboJar> ");
+				j.rl.prompt();
 			},0);
 		} else if (msg.substr(0,1) == "/") {
 			msg = msg.substr(1).split(' ');

@@ -1,8 +1,8 @@
 // load my shit!
-var Bot = require('../ttapi/index');
-var repl = require('repl');
-var util = require('util');
-var jar = require('./robot').roboJar;
+var Bot = require('../ttapi/index'),
+    readline = require('readline'),
+    util = require('util'),
+    jar = require('./robot').roboJar;
 
 // set up my settings for settage at a future date.
 var AUTH  = 'auth+live+8f82e0b0ccb05ebb0f417983e9d0812b5186f29b';
@@ -21,8 +21,12 @@ bot.on('deregistered', jar.onUserPart);
 
 
 // start up the console
-repl.start('roboJar> ', null, jar.onCommand).context.j = jar.public;
-jar.public.repl = repl;
+rl = readline.createInterface(process.stdin, process.stdout);
+rl.setPrompt('roboJar> ', 9);
+rl.on('line', jar.onCommand);
+rl.on('close', jar.unload);
+rl.prompt();
+jar.rl = rl;
 
 process.on('exit', function () {
 	jar.onUnload();
