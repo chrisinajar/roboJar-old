@@ -139,20 +139,22 @@ var j = {
 								var user = j.users[dj];
 								var idle = Math.floor(user.getIdleTime()/1000);
 								if (idle < 300)
-									return;
+									continue;
+								if (idle > 600)
+									msg += '@';
 								var timeStr = Math.floor(idle/60)+':'+(idle%60);
 								if (timeStr.substr(-2,1) == ":") {
 									timeStr = timeStr.substr(0, timeStr.length-1) + '0' + timeStr.substr(-1);
 								}
-								msg += user.name + ': ' + timeStr + ' :: ';
+								msg += user.name + ': ' + timeStr + ' || ';
 							} else {
-								msg += user.name + ': magic? :: ';
+								msg += '@'+user.name + ': magic? || ';
 							}
 						}
 						if (msg.length == 0)
 							j.bot.speak("No one is idle.");
 						else
-							j.bot.speak('Idle: ' + msg);
+							j.bot.speak('Idle: ' + msg.substr(0,msg.length-3));
 					});
 				}
 				return;
