@@ -22,6 +22,7 @@ bot.on('deregistered', jar.onUserPart);
 
 // start up the console
 repl.start('roboJar> ', null, jar.onCommand).context.j = jar.public;
+jar.public.repl = repl;
 
 process.on('exit', function () {
 	jar.onUnload();

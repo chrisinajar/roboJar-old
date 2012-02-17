@@ -20,6 +20,36 @@ var j = {
 		'docawk': '4e1b661a4fe7d0314a05b6cb',
 		'cheep': '4dfff25ba3f75104e306e495',
 	},
+	settings: ['users', 'userNames'],
+	loadSettings: function() {
+		for (var i = 0, k = j.settings.length; i<k; ++i) {
+			var obj = j.settings[i];
+			this.db.get(obj, function(er, doc) {
+				if (er) {
+					if (er.reason == "missing") {
+						j.log("No setting found for: " + obj);
+						return;
+					}
+					throw new Error(JSON.stringify(er));
+				}
+				j.log("Loaded setting: " + obj);
+				j[obj]=doc;
+			});
+		}
+	},
+	saveSettings: function(h) {
+		var c = j.settings.length;
+		for (var i = 0, k = j.settings.length; i<k; ++i) {
+			var obj = j.settings[i];
+			this.db.save(obj, j[obj], function(er, doc) {
+				if (er) throw new Error(JSON.stringify(er));
+				j.log("Saved setting: " + obj);
+				if (--c == 0) {
+					h();
+				}
+			});
+		}
+	},
 	color: {
 		red: function(m) { return '\u001b[31m'+m+j.color.reset();},
 		green: function(m) { return '\u001b[32m'+m+j.color.reset();},
@@ -28,27 +58,40 @@ var j = {
 	},
 	'public': {},
 	log: function(msg) {
-		process.stdout.write("\n");
 		console.log(msg);
-		process.stdout.write("roboJar> ");
 	},
 	onLoad: function(util, bot, room) {
+		var cradle = require('cradle');
+		this.db = new(cradle.Connection)().database('robojar');
+		this.loadSettings();
 		this.util = util;
 		this.bot = bot;
-		this.room = room;
 		this.public.bot = bot;
 		bot.on('roomChanged',  function(data) {
 			for (var user in data.users) {
 				user = data.users[user];
 				j.users[user.userid] = new User(user.userid, user.name);
 			}
+			this.room = data.room;
 		});
 		bot.roomRegister(room);
 	},
 	onUnload: function() {
-		j.log("Oh, ok, bye.");
+		j.log("Dick.");
+	},
+	unload: function() {
+		j.saveSettings(function(){
+			j.log("Over and out.");
+			process.exit();
+		});
 	},
 	onSpeak: function(d) {
+		if (typeof j.users[d.userid] == "undefined") {
+			j.users[d.userid] = new User(d.userid, d.name);
+		} else j.users[d.userid].idleTimer = (new Date()).getTime();
+		if (typeof j.userNames[d.name] == "undefined") {
+			j.userNames[d.name] = d.userid;
+		}
 		if (d.text.substr(0,1) == "/") {
 			j.log(j.color.red(d.name + " ran " + d.text));
 			if (d.text == "/djs") {
@@ -79,12 +122,6 @@ var j = {
 			return;
 		}
 		j.log(j.color.blue(d.name)+": "+d.text);
-		if (typeof j.users[d.userid] == "undefined") {
-			j.users[d.userid] = new User(d.userid, d.name);
-		} else j.users[d.userid].idleTimer = (new Date()).getTime();
-		if (typeof j.userNames[d.name] == "undefined") {
-			j.userNames[d.name] = d.userid;
-		}
 	},
 	onUserJoin: function(d) {
 		for (var user in d.user) {
@@ -143,6 +180,9 @@ var j = {
 						}
 					});
 					//j.log
+					break;
+				case "close":
+					j.unload();
 					break;
 			}
 		} else {
