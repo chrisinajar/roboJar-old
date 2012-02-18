@@ -44,41 +44,63 @@ var j = {
 		});
 	},
 	settings: {
-		'users': function() {
-			for(var id in j.users) for (var func in User.prototype)
-				j.users[id][func]=User.prototype[func];
-		}, 
-		'userNames': null,
+		'users': {
+			load: function() {
+				for(var id in j.users) for (var func in User.prototype)
+					j.users[id][func]=User.prototype[func];
+			}, 
+		},
+		'userNames': {},
 	},
-	loadSettings: function() {
-		for (var obj in j.settings) {
-			this.db.get(obj, function(er, doc) {
-				if (er) {
-					if (er.reason == "missing") {
-						j.log("No setting found for: " + obj);
-						return;
-					}
-					j.log(er);
-				}
-				j.log("Loaded setting: " + doc._id);
-				j[doc._id]=doc;
-				if (j.settings[doc._id])
-					j.settings[doc._id]();
-			});
-		}
-	},
-	saveSettings: function(h) {
+	loadSettings: function(h, context) {
+		if (!j.isset(context))
+			context = j;
 		var c = 0;
-		for (var obj in j.settings) {
+		for (var obj in context.settings) {
 			c++;
-			this.db.save(obj, j[obj], function(er, doc) {
-				if (er) j.log(er);
-				j.log("Saved setting: " + doc.id);
-				if (--c == 0) {
+			j.getDoc(obj, function(obj, doc) {
+				context[obj]=doc;
+				if (j.isset(context.settings[obj].load))
+					context.settings[obj].load();
+				if (--c == 0 && j.isset(h)) {
 					h();
 				}
-			});
+			}, obj);
 		}
+	},
+	saveSettings: function(h, context) {
+		if (!j.isset(context))
+			context = j;
+		var c = 0;
+		for (var obj in context.settings) {
+			c++;
+			j.putDoc(obj, context[obj], function(obj, doc) {
+				if (j.isset(context.settings[obj].save))
+					context.settings[obj].save();
+				if (--c == 0 && j.isset(h)) {
+					h();
+				}
+			}, obj);
+		}
+	},
+	getDoc: function(name, h, d) {
+		this.db.get(name, function(er, doc) {
+			if (er) {
+				if (er.reason == "missing") {
+					j.log("No setting found for: " + name);
+				}
+				j.log(er);
+			}
+			j.log("Loaded setting: " + name);
+			h(d, doc);
+		});
+	},
+	putDoc: function(name, obj, h, d) {
+		this.db.save(name, obj, function(er, doc) {
+			if (er) j.log(er);
+			j.log("Saved setting: " + name);
+			h(d, doc);
+		});
 	},
 	term: {
 		clearLine: function() { return '\u001b[0G'+'\u001b[2K';},
@@ -113,6 +135,8 @@ var j = {
 	},
 	unregister: function(obj, event, cb, rm) {
 		var ar = j.on.ar[obj.id];
+		if (!j.isset(ar))
+			return;
 		if (!j.isset(rm))
 			rm = 0;
 		else if (rm > 0)
@@ -137,6 +161,7 @@ var j = {
 			ar.splice(i,1);
 			i--;
 		}
+		delete j.on.ar[obj.id];
 	},
 	on: function(obj, event, cb) {
 		if (!j.isset(j.on.ar[obj.id]))
@@ -175,22 +200,27 @@ var j = {
 		}
 	},
 	modules: {},
-	loadModule: function(name) {
-		if (j.isset(j.modules[name]))
-			j.unloadModule(name);
-		var Type = require('./'+name);
-		Type.prototype.id = (Math.random()*0xefffffffffffffff + 0x1000000000000000).toString(16);
-		j.modules[name] = new Type(j);
-		j.log('Loaded module: ' + name);
+	loadModule: function(name, h, d) {
+		j.unloadModule(name, function(d) {
+			var Type = require('./'+name);
+			Type.prototype.id = (Math.random()*0xefffffffffffffff + 0x1000000000000000).toString(16);
+			Type.prototype.loadSettings = function(){};
+			j.modules[name] = new Type(j);
+			j.log('Loaded module: ' + name);
+			if (j.isset(h)) h(d);
+		}, d);
 	},
-	unloadModule: function(name) {
-		if (!j.isset(j.modules[name]))
+	unloadModule: function(name, h, d) {
+		if (!j.isset(j.modules[name])) {
+			if (j.isset(h)) h(d);
 			return;
+		}
 		j.unregister(j.modules[name]);
-		if (j.isset(j.modules[name].unload))
-			j.modules[name].unload();
-		delete j.modules[name];
-		delete require.cache[require.resolve('./'+name)];
+		j.modules[name].unload(function(name) {
+			delete j.modules[name];
+			delete require.cache[require.resolve('./'+name).id];
+			if (j.isset(h)) h(d);
+		}, name);
 	},
 	onLoad: function(util, bot, room) {
 		var cradle = require('cradle');
@@ -379,8 +409,9 @@ var j = {
 			} else if (cmd[0] == "/unload") { j.admin(d.userid, function(cmd) {
 				setTimeout(function() {
 					try {
-						j.unloadModule(cmd[1]);
-						j.bot.speak("Unloaded module: "+cmd[1]);
+						j.unloadModule(cmd[1], function(n) {
+							j.bot.speak("Unloaded module: "+n);
+						}, cmd[1]);
 					} catch(e) {
 						j.bot.speak("nope.avi: " + e.message);
 					}
