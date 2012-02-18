@@ -561,7 +561,7 @@ var j = {
 					break;
 				case "unload":
 					try {
-						j.loadModule(msg[1]);
+						j.unloadModule(msg[1]);
 					} catch(e) {
 						j.log("nope.avi: " + e.message);
 					}
