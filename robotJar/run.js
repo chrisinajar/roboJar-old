@@ -14,11 +14,6 @@ var bot = new Bot(AUTH, USERID);
 bot.on('ready', function() {
 	jar.onLoad(util, bot, ROOMID);
 });
-bot.on('speak', jar.onSpeak);
-bot.on('newsong', jar.onNewSong);
-bot.on('registered', jar.onUserJoin);
-bot.on('deregistered', jar.onUserPart);
-
 
 // start up the console
 rl = readline.createInterface(process.stdin, process.stdout);
