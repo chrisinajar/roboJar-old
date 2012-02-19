@@ -16,8 +16,6 @@
  *
  */
 
-'use strict';
-
 var User = function(userid, name) {
 	this.userid = userid;
 	this.name = name;
@@ -56,8 +54,8 @@ var j = {
 	admin: function(id, c, d) {
 		if (id == '4e42c21b4fe7d02e6107b1ff')
 			c(d);
-		j.bot.roomInfo(j.room, function(d) {
-			if (d.room.metadata.moderator_id.indexOf(id) >= 0)
+		j.bot.roomInfo(j.room, function(data) {
+			if (data.room.metadata.moderator_id.indexOf(id) >= 0)
 				c(d);
 		});
 	},
@@ -399,13 +397,18 @@ var j = {
 						break;
 				}
 			} else if (cmd[0] == "/eval") { j.admin(d.userid, function(cmd) {
+				j.log(j.color.red(d.name + " ran " + d.text));
+				j.log(cmd);
 				var torun = '';
 				for(var i=1, l=cmd.length;i<l;++i) {
 					torun += cmd[i] + ' ';
 				}
+				j.log("Executing: " + j.color.red(torun));
 				setTimeout(function() {
 					try {
-						eval(torun);
+						var res = eval(torun);
+						if (j.isset(res))
+							j.bot.speak(res);
 					} catch(e) {
 						j.bot.speak("nope.avi: " + e.message);
 					}
