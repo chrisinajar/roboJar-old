@@ -174,22 +174,26 @@ var j = {
 			j.log(j.on.ids[event]);
 			j.on.events[event].splice(p,1);
 			j.on.ids[event].splice(p,1);
+			j.on.data[event].splice(p,1);
 			ar.splice(i,1);
 			i--;
 		}
 		delete j.on.ar[obj.id];
 	},
-	on: function(obj, event, cb) {
+	on: function(obj, event, cb, data) {
 		if (!j.isset(j.on.ar[obj.id]))
 			j.on.ar[obj.id] = [];
 		if (!j.isset(j.on.events[event]))
 			j.on.events[event] = [];
 		if (!j.isset(j.on.ids[event]))
 			j.on.ids[event] = [];
+		if (!j.isset(j.on.data[event]))
+			j.on.data[event] = [];
 		
 		var id=(Math.random()*0xefffffffffffffff + 0x1000000000000000).toString(16);
 		
 		j.on.ids[event].push(id);
+		j.on.data[event].push(data);
 		j.on.events[event].push(cb);
 		j.on.ar[obj.id].push({
 			object: obj,
@@ -202,17 +206,18 @@ var j = {
 		j.log('Event: '+event);
 		if (!j.isset(j.on.events[event]))
 			return;
-		var ar = j.on.events[event];
-		for (var i=0,l=ar.length; i<l; ++i) {
-			(function(cb, d) {
+		var events = j.on.events[event];
+		var ids = j.on.ids[event];
+		for (var i=0,l=events.length; i<l; ++i) {
+			(function(cb, data, d) {
 				setTimeout(function(){
 					try {
-						cb(d);
+						cb(d, data);
 					} catch (e) {
 						j.log(e);
 					}
 				},0);
-			})(ar[i],data);
+			})(events[i],j.on.data[i],j.copy(data));
 		}
 	},
 	modules: {},
@@ -246,12 +251,16 @@ var j = {
 		j.util = util;
 		j.bot = bot;
 		j.public.bot = bot;
-		
+		//it
+		// at
+		//look
 		j.on.ar = {};
 		j.on.ids = {};
+		j.on.data = {};
 		j.on.events = {};
-		
-		var events = [
+		// weird huh
+		// not palled
+		var events  =[
 			'speak',
 			'newsong',
 			'registered',
@@ -579,6 +588,90 @@ var j = {
 	},
 	isset: function(d) {
 		return (typeof d != "undefined")
+	},
+	// stolen from https://gist.github.com/825253
+	/**
+	 * Adopted from jquery's extend method. Under the terms of MIT License.
+	 *
+	 * http://code.jquery.com/jquery-1.4.2.js
+	 *
+	 * Modified by mscdex to use Array.isArray instead of the custom isArray method
+	 */
+	extend: function() {
+	  // copy reference to target object
+	  var target = arguments[0] || {}, i = 1, length = arguments.length, deep = false, options, name, src, copy;
+
+	  // Handle a deep copy situation
+	  if (typeof target === 'boolean') {
+		deep = target;
+		target = arguments[1] || {};
+		// skip the boolean and the target
+		i = 2;
+	  }
+
+	  // Handle case when target is a string or something (possible in deep copy)
+	  if (typeof target !== 'object' && !typeof target === 'function')
+		target = {};
+
+	  var isPlainObject = function(obj) {
+		// Must be an Object.
+		// Because of IE, we also have to check the presence of the constructor property.
+		// Make sure that DOM nodes and window objects don't pass through, as well
+		if (!obj || toString.call(obj) !== '[object Object]' || obj.nodeType || obj.setInterval)
+		  return false;
+		
+		var has_own_constructor = hasOwnProperty.call(obj, 'constructor');
+		var has_is_property_of_method = hasOwnProperty.call(obj.constructor.prototype, 'isPrototypeOf');
+		// Not own constructor property must be Object
+		if (obj.constructor && !has_own_constructor && !has_is_property_of_method)
+		  return false;
+		
+		// Own properties are enumerated firstly, so to speed up,
+		// if last one is own, then all properties are own.
+
+		var last_key;
+		for (key in obj)
+		  last_key = key;
+		
+		return typeof last_key === 'undefined' || hasOwnProperty.call(obj, last_key);
+	  };
+
+
+	  for (; i < length; i++) {
+		// Only deal with non-null/undefined values
+		if ((options = arguments[i]) !== null) {
+		  // Extend the base object
+		  for (name in options) {
+			src = target[name];
+			copy = options[name];
+
+			// Prevent never-ending loop
+			if (target === copy)
+				continue;
+
+			// Recurse if we're merging object literal values or arrays
+			if (deep && copy && (isPlainObject(copy) || Array.isArray(copy))) {
+			  var clone = src && (isPlainObject(src) || Array.isArray(src)) ? src : Array.isArray(copy) ? [] : {};
+
+			  // Never move original objects, clone them
+			  target[name] = j.extend(deep, clone, copy);
+
+			// Don't bring in undefined values
+			} else if (typeof copy !== 'undefined')
+			  target[name] = copy;
+		  }
+		}
+	  }
+
+	  // Return the modified object
+	  return target;
+	},
+	// </stolencode> wutwut!
+	// make a convenient deeop copy shortcut key! YEAH!
+	copy: function(source) {
+		var ret = {};
+		j.extend(true, ret, source);
+		return ret;
 	},
 	id: "roboJar eats children",
 };

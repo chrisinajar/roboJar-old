@@ -1,7 +1,10 @@
-Very difficult to run without chrisinajar's help.
+You'll need
 
 nodejs v0.6.10
 ttapi
 cradle
+couchdb
+
+run.js
 
 Good luck and godspeed.

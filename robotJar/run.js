@@ -23,7 +23,6 @@ var Bot = require('../ttapi/index'),
     jar = require('./robot').roboJar;
 
 // set up my settings for settage at a future date.
-var AUTH  = 'auth+live+8f82e0b0ccb05ebb0f417983e9d0812b5186f29b';
 var USERID = '4f2ca85aa3f75176bb00a06c';
 var ROOMID = '4ded3b7e99968e1d29000047';
 
