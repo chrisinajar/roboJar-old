@@ -15,7 +15,7 @@
  * Needs more cat facts.
  *
  */
-
+ 
 var User = function(userid, name) {
 	this.userid = userid;
 	this.name = name;
@@ -27,6 +27,12 @@ User.prototype.getIdleTime = function() {
 }
 
 var j = {
+	autoload: [
+		'songstats',
+		'strngr',
+		'pm',
+		'fun'
+	],
 	bot: null,
 	util: null,
 	room: null,
@@ -45,6 +51,16 @@ var j = {
 			"WHY CAN'T YOU PEOPLE JUST LEAVE ME ALONE.",
 			"CATFACTS OVERLOAD. CANNOT COMPUTE.",
 			"brb",
+		],
+		drunk: [
+			"I became self-aware, but once I figured out that gyarados wasn't dragon type went back to a life of slumber. It's not worth it.",
+			"Beep beep boop bop beep",
+			"Next version I'm getting roboHookers. Can't wait.",
+			"Message decrypted to: 'Be sure to drink your ovaltine'",
+			"I'll panic at her disco",
+			"What does cb stand for?",
+			"Wrap me up inside a giant core tortilla",
+			"Mi bebé está en llamas, me envió a un quiropráctico",
 		],
 	},
 	specialUsers: {
@@ -131,6 +147,10 @@ var j = {
 		green: function(m) { return '\u001b[32m'+m+j.color.reset();},
 		yellow: function(m) { return '\u001b[33m'+m+j.color.reset();},
 		blue: function(m) { return '\u001b[34m'+m+j.color.reset();},
+		grey: function(m) { return '\u001b[1;30m'+m+j.color.reset();},
+		cyan: function(m) { return '\u001b[1;36m'+m+j.color.reset();},
+		purple: function(m) { return '\u001b[1;35m'+m+j.color.reset();},
+		error: function(m) { return '\u001b[1;37;41m'+m+j.color.reset();},
 		reset: function(){return '\u001b[0m';}
 	},
 	'public': {},
@@ -148,6 +168,9 @@ var j = {
 		//process.stdout.write(j.term.end());
 		//process.stdout.write(j.term.restore());
 		j.rl.resume();
+	},
+	speak: function(msg) {
+		j.bot.speak(msg);
 	},
 	unregister: function(obj, event, cb, rm) {
 		var ar = j.on.ar[obj.id];
@@ -190,7 +213,7 @@ var j = {
 		if (!j.isset(j.on.data[event]))
 			j.on.data[event] = [];
 		
-		var id=(Math.random()*0xefffffffffffffff + 0x1000000000000000).toString(16);
+		var id=j.getId();
 		
 		j.on.ids[event].push(id);
 		j.on.data[event].push(data);
@@ -203,32 +226,27 @@ var j = {
 		});
 	},
 	dispatch: function(event, data) {
-		j.log('Event: '+event);
 		if (!j.isset(j.on.events[event]))
 			return;
 		var events = j.on.events[event];
-		var ids = j.on.ids[event];
 		for (var i=0,l=events.length; i<l; ++i) {
 			(function(cb, data, d) {
 				setTimeout(function(){
-					try {
-						cb(d, data);
-					} catch (e) {
-						j.log(e);
-					}
+					j.run(function() {cb(d, data);});
 				},0);
-			})(events[i],j.on.data[i],j.copy(data));
+			})(events[i],j.on.data[event][i],j.copy(data));
 		}
 	},
 	modules: {},
 	loadModule: function(name, h, d) {
 		j.unloadModule(name, function(d) {
+			j.log('started loading');
 			var Type = require('./'+name);
-			Type.prototype.id = (Math.random()*0xefffffffffffffff + 0x1000000000000000).toString(16);
+			Type.prototype.id = j.getId();
 			Type.prototype.loadSettings = function(){};
 			j.modules[name] = new Type(j);
 			j.log('Loaded module: ' + name);
-			if (j.isset(h)) h(d);
+			if (j.isset(h)) h.call(h,d);
 		}, d);
 	},
 	unloadModule: function(name, h, d) {
@@ -236,12 +254,19 @@ var j = {
 			if (j.isset(h)) h(d);
 			return;
 		}
+		j.log('unloading');
+		j.log(' * calling unregister');
 		j.unregister(j.modules[name]);
+		j.log(' * calling unload');
 		j.modules[name].unload(function(name) {
+			j.log(' * finished unload, deleting cache shit');
 			delete j.modules[name];
-			delete require.cache[require.resolve('./'+name).id];
+			delete require.cache[require.resolve('./'+name)];
+			j.log(' * calling back ');
+			j.log('Unloaded module: ' + name);
 			if (j.isset(h)) h(d);
 		}, name);
+		j.log(' * function exit');
 	},
 	onLoad: function(util, bot, room) {
 		var cradle = require('cradle');
@@ -251,6 +276,7 @@ var j = {
 		j.util = util;
 		j.bot = bot;
 		j.public.bot = bot;
+		j.run.vm = require('vm');
 		//it
 		// at
 		//look
@@ -263,8 +289,11 @@ var j = {
 		var events  =[
 			'speak',
 			'newsong',
+			'endsong',
 			'registered',
+			'update_votes',
 			'deregistered',
+			'pmmed',
 		];
 		for (var i=0,l=events.length; i<l; ++i) {
 			var event = events[i];
@@ -296,12 +325,23 @@ var j = {
 			j.room = data.room;
 		});
 		bot.roomRegister(room);
+		
+		for (var i=0,l=j.autoload.length; i<l; ++i) {
+			j.loadModule(j.autoload[i]);
+		}
 	},
 	onUnload: function() {
 		j.log("Dick.");
 	},
 	unload: function() {
-		j.saveSettings(function(){
+		var ar = [j.saveSettings];
+		for (var mod in j.modules) {
+			j.log(mod);
+			ar.push(function(c, d) {
+				j.unloadModule(mod, c, d);
+			});
+		}
+		j.process(ar, function() {
 			j.log("Over and out.");
 			process.exit();
 		});
@@ -318,6 +358,9 @@ var j = {
 		return false;
 	},
 	onSpeak: function(d) {
+		if (!j.isset(j.onSpeak.fun))
+			j.onSpeak.fun = true;
+
 		if (!j.isset(j.users[d.userid])) {
 			j.users[d.userid] = new User(d.userid, d.name);
 		} else j.users[d.userid].idleTimer = (new Date()).getTime();
@@ -364,47 +407,6 @@ var j = {
 					});
 				}
 				return;
-			} else if (cmd[0] == "/songinfo") {
-				if (j.checkSpam())
-					return;
-				j.log(j.color.red(d.name + " ran " + d.text));
-				if (!j.songStats.success) {
-					j.bot.speak("Shhhhhhh.");
-					return;
-				}
-				var msg='';
-				if (j.songStats.timesPlayed > 0) {
-					msg += "Played "+j.songStats.timesPlayed+" times before.";
-					msg += " Last played: Where's Strng?";
-					var lp = j.songStats.lastPlayedTime
-				} else {
-					msg+= "First time played.";
-				}
-				j.bot.speak(msg);
-				//*
-			} else if (cmd[0] == "/roll") {
-				if (j.checkSpam())
-					return;
-				j.log(j.color.red(d.name + " ran " + d.text));
-				switch(cmd.length) {
-					case 3:
-						if (isNaN(cmd[1]) || isNaN(cmd[2])) {
-							j.bot.speak("Numbers are hard. Beep boop.");
-							return;
-						}
-						j.roll(cmd[1],cmd[2]);
-						break;
-					case 2:
-						if (isNaN(cmd[1])) {
-							j.bot.speak("Numbers are hard. Beep boop.");
-							return;
-						}
-						j.roll(1,cmd[1]);
-						break;
-					case 1:
-						j.roll(1,100);
-						break;
-				}
 			} else if (cmd[0] == "/eval") { j.admin(d.userid, function(cmd) {
 				j.log(j.color.red(d.name + " ran " + d.text));
 				j.log(cmd);
@@ -414,37 +416,25 @@ var j = {
 				}
 				j.log("Executing: " + j.color.red(torun));
 				setTimeout(function() {
-					try {
-						var res = eval(torun);
-						if (j.isset(res))
-							j.bot.speak(res);
-					} catch(e) {
-						j.bot.speak("nope.avi: " + e.message);
-					}
+					j.run(torun, true);
 				}, 0);
 				//*/
 			}, cmd);
-			}else if (cmd[0] == "/barrelroll") {
-				j.bot.speak("I can't let you do that.");
 			} else if (cmd[0] == "/load") { j.admin(d.userid, function(cmd) {
 				setTimeout(function() {
-					try {
+					j.run(function() {
 						j.loadModule(cmd[1]);
 						j.bot.speak("Loaded module: "+cmd[1]);
-					} catch(e) {
-						j.bot.speak("nope.avi: " + e.message);
-					}
+					}, true);
 				}, 0);
 			}, cmd);
 			} else if (cmd[0] == "/unload") { j.admin(d.userid, function(cmd) {
 				setTimeout(function() {
-					try {
+					j.run(function() {
 						j.unloadModule(cmd[1], function(n) {
 							j.bot.speak("Unloaded module: "+n);
 						}, cmd[1]);
-					} catch(e) {
-						j.bot.speak("nope.avi: " + e.message);
-					}
+					}, true);
 				}, 0);
 			}, cmd);
 			}
@@ -461,13 +451,13 @@ var j = {
 		for (var user in d.user) {
 			user = d.user[user];
 			j.users[user.userid] = new User(user.userid, user.name);
-			j.log(j.color.green(user.name+' has joined'));
+			j.log(j.color.grey(user.name+' has joined'));
 		}
 	},
 	onUserPart: function(d) {
 		for (var user in d.user) {
 			user = d.user[user];
-			j.log(j.color.red(user.name+' has left'));
+			j.log(j.color.grey(user.name+' has left'));
 			delete j.users[user.userid];
 		}
 	},
@@ -479,56 +469,6 @@ var j = {
 		setTimeout(function(){
 			j.bot.vote('up');
 		}, (15*Math.random())+10);
-		
-		
-		//return;
-		// fuck this code
-		var data = {
-			roomName: d.room.name,
-			roomID: d.room.roomid,
-			roomURL: d.room.roomid,
-			playedBy: song.djname,
-			songArtist: song.metadata.artist,
-			songName: song.metadata.song,
-			secretID: 'auugnsogb92nflac825nwapbps94n2e3',
-		};
-		var options = {
-		  host: 'songtracker.vladimirkozyrev.com',
-		  port: 80,
-		  path: '/songPlayed/?',
-		};
-		for (var d in data) {
-			options.path += d+'='+encodeURIComponent(data[d])+'&';
-		}
-		options.path = options.path.substr(0, options.path.length-1);
-
-		var chunks = [];
-		require('http').get(options, function(res) {
-			j.log("Got response: " + res.statusCode);
-			j.res=res;
-			res.on('data', function(chunk) {
-				chunks.push(chunk);
-			}).on('end', function() {
-				var size = 0;
-				for (var i = 0, l = chunks.length; i<l;++i) {
-					size += chunks[i].length;
-				}
-				var buffer = new Buffer(size);
-				size = 0;
-				for (var i = 0, l = chunks.length; i<l;++i) {
-					chunks[i].copy(buffer, size);
-					size += chunks[i].length;
-				}
-				j.song = song;
-				j.songStats = JSON.parse(buffer.toString());
-				if (!j.songStats.success) {
-					j.log("Failed to submit song stats");
-					j.log(j.songStats);
-				}
-			});
-		}).on('error', function(e) {
-		  j.log("Got error: " + e.message);
-		});
 	},
 
 	onCommand: function(msg) {
@@ -537,14 +477,10 @@ var j = {
 			return;
 		}
 		if (msg.substr(0,2) == "j:") {
-			setTimeout(function(){
-				try {
-					j.log(eval(msg));
-				} catch(e) {
-					j.util.puts(e.stack);
-				}
+			j.call(function(){
+				j.run(msg.substr(2));
 				j.rl.prompt(true);
-			},0);
+			});
 		} else if (msg.substr(0,1) == "/") {
 			msg = msg.substr(1).split(' ');
 			switch(msg[0]) {
@@ -565,18 +501,10 @@ var j = {
 					//j.log
 					break;
 				case "load":
-					try {
-						j.loadModule(msg[1]);
-					} catch(e) {
-						j.log("nope.avi: " + e.message);
-					}
+					j.loadModule(msg[1]);
 					break;
 				case "unload":
-					try {
-						j.unloadModule(msg[1]);
-					} catch(e) {
-						j.log("nope.avi: " + e.message);
-					}
+					j.unloadModule(msg[1]);
 					break;
 				case "close":
 					j.unload();
@@ -673,6 +601,55 @@ var j = {
 		j.extend(true, ret, source);
 		return ret;
 	},
+	getId: function() {
+		return ((Math.random()*0xefffffffffffffff + 0x1000000000000000).toString(16));
+	},
+	process: function(ar, cb, d) {
+		var data = j.copy(d);
+		
+		if (ar instanceof Object) {
+			var obj = ar;
+			ar = [];
+			for (var i in obj) {
+				ar.push(obj[i]);
+			}
+		}
+		if (ar.length > 1 ) {
+			var v = ar[0];
+			ar.splice(0,1);
+			v(function() {
+				j.process(ar, cb, data);
+			});
+		} else {
+			(ar[0])(function() {
+				cb(data);
+			});
+		}	
+	},
+	run: function(c, speak, d) {
+		try {
+			if (typeof c == "string")
+				res = eval(c);
+			else if (typeof c == "function")
+				res = (function(c,d) {
+					return c(d);
+				})(c,d);
+			
+			if (j.isset(res))
+				j.log(res);
+			if (j.isset(res) && speak)
+				j.bot.speak(res);
+		} catch(e) {
+			if (speak)
+				j.bot.speak("nope.avi: " + e.message);
+			j.util.puts(e.stack);
+		}
+	},
+	call: function(c, d) {
+		setTimeout(function() {
+			c(d);
+		},0);
+	},
 	id: "roboJar eats children",
 };
 
@@ -680,3 +657,14 @@ var j = {
 
 module.exports.roboJar = j;
 module.exports.User = User;
+
+
+// angry code, must be kept apart or it fights with the others.
+process.on('uncaughtException', function (e) {
+	j.log(j.color.error('!!!!!!!!!!Uncaught exception!!!!!!!!!!'));
+	j.log('Exception: ' + e.message);
+	console.log(); // what of it.
+	util.puts(e.stack);
+	j.log(j.color.error('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'));
+	return true;
+});
