@@ -29,7 +29,6 @@ User.prototype.getIdleTime = function() {
 var j = {
 	autoload: [
 		'songstats',
-		'strngr',
 		'pm',
 		'fun'
 	],
@@ -254,16 +253,12 @@ var j = {
 			if (j.isset(h)) h(d);
 			return;
 		}
-		j.log('unloading');
-		j.log(' * calling unregister');
+		j.log('Unloading module: '+name);
 		j.unregister(j.modules[name]);
-		j.log(' * calling unload');
 		j.modules[name].unload(function(name) {
-			j.log(' * finished unload, deleting cache shit');
 			delete j.modules[name];
 			delete require.cache[require.resolve('./'+name)];
-			j.log(' * calling back ');
-			j.log('Unloaded module: ' + name);
+			j.log('Successfully unloaded module: ' + name);
 			if (j.isset(h)) h(d);
 		}, name);
 		j.log(' * function exit');
@@ -336,10 +331,11 @@ var j = {
 	unload: function() {
 		var ar = [j.saveSettings];
 		for (var mod in j.modules) {
-			j.log(mod);
-			ar.push(function(c, d) {
-				j.unloadModule(mod, c, d);
-			});
+			ar.push((function(mod){
+				return (function(c, d) {
+					j.unloadModule(mod, c, d);
+				});
+			})(mod));
 		}
 		j.process(ar, function() {
 			j.log("Over and out.");
@@ -470,7 +466,6 @@ var j = {
 			j.bot.vote('up');
 		}, (15*Math.random())+10);
 	},
-
 	onCommand: function(msg) {
 		if (msg == "undefined" || msg.length < 1) {
 			j.rl.prompt(true);
@@ -624,7 +619,7 @@ var j = {
 			(ar[0])(function() {
 				cb(data);
 			});
-		}	
+		}
 	},
 	run: function(c, speak, d) {
 		try {
@@ -650,6 +645,12 @@ var j = {
 			c(d);
 		},0);
 	},
+	setTimeout: function(f, t, d) {
+
+	},
+	setInterval: function(f, t, d) {
+
+	},
 	id: "roboJar eats children",
 };
 
@@ -665,6 +666,7 @@ process.on('uncaughtException', function (e) {
 	j.log('Exception: ' + e.message);
 	console.log(); // what of it.
 	util.puts(e.stack);
-	j.log(j.color.error('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'));
+	j.log(j.color.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'));
+	j.log('');
 	return true;
 });
