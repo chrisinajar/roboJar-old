@@ -15,8 +15,11 @@
  * Needs more cat facts.
  *
  */
- 
-var User = function(userid, name) {
+
+// There's some code taken from 'mscdex' down there somewhere ---v
+var flow = require('./flow');
+
+var User = function(userid, name, j) {
 	this.userid = userid;
 	this.name = name;
 	this.idleTimer = (new Date()).getTime();
@@ -30,7 +33,9 @@ var j = {
 	autoload: [
 		'songstats',
 		'pm',
-		'fun'
+		'strngr',
+		'fun',
+		'slottimer'
 	],
 	bot: null,
 	util: null,
@@ -38,6 +43,7 @@ var j = {
 	spamCount: 0,
 	users: {},
 	userNames: {},
+	djs: [],
 	songStats: {success: false},
 	lang: {
 		get: function(type) {
@@ -65,6 +71,14 @@ var j = {
 	specialUsers: {
 		'docawk': '4e1b661a4fe7d0314a05b6cb',
 		'cheep': '4dfff25ba3f75104e306e495',
+		'tf': '4e4069f5a3f7517bcc010a1c',
+		'neva': '4e446bb94fe7d02a4301e4d0',
+		'justice': '4e399773a3f751255300be75',
+		'blue': '4e0611d54fe7d01d08005d4f',
+		'izzy': '4e26e4214fe7d05f3a07a176',
+		'topher': '4e569c79a3f75149df032f60',
+		'cmazz': '4e3195b54fe7d015d50f05ba',
+		'pooch': '4e1b484b4fe7d03153057e4d',
 	},
 	admin: function(id, c, d) {
 		if (id == '4e42c21b4fe7d02e6107b1ff')
@@ -90,7 +104,8 @@ var j = {
 		for (var obj in context.settings) {
 			c++;
 			j.getDoc(obj, function(obj, doc) {
-				context[obj]=doc;
+				if (j.isset(doc))
+					context[obj]=doc;
 				if (j.isset(context.settings[obj].load))
 					context.settings[obj].load();
 				if (--c == 0 && j.isset(h)) {
@@ -123,14 +138,14 @@ var j = {
 				j.log(er);
 			}
 			j.log("Loaded setting: " + name);
-			h(d, doc);
+			setTimeout(function(){h(d, doc);},0);
 		});
 	},
 	putDoc: function(name, obj, h, d) {
 		this.db.save(name, obj, function(er, doc) {
 			if (er) j.log(er);
 			j.log("Saved setting: " + name);
-			h(d, doc);
+			setTimeout(function(){h(d, doc);},0);
 		});
 	},
 	term: {
@@ -171,6 +186,11 @@ var j = {
 	speak: function(msg) {
 		j.bot.speak(msg);
 	},
+	unregisterAll: function() {
+		for (var id in j.on.ar) {
+			j.unregister({id:id});
+		};
+	},
 	unregister: function(obj, event, cb, rm) {
 		var ar = j.on.ar[obj.id];
 		if (!j.isset(ar))
@@ -187,16 +207,13 @@ var j = {
 			if (j.isset(cb) && me.callback != cb)
 				continue;
 			
-			event = me.event;
-			cb = me.callback;
-			
-			var p = j.on.ids[event].indexOf(me.id);
+			var p = j.on.ids[me.event].indexOf(me.id);
 			j.log(p+' '+me.id);
-			j.log(j.on.events[event]);
-			j.log(j.on.ids[event]);
-			j.on.events[event].splice(p,1);
-			j.on.ids[event].splice(p,1);
-			j.on.data[event].splice(p,1);
+			j.log(j.on.events[me.event]);
+			j.log(j.on.ids[me.event]);
+			j.on.events[me.event].splice(p,1);
+			j.on.ids[me.event].splice(p,1);
+			j.on.data[me.event].splice(p,1);
 			ar.splice(i,1);
 			i--;
 		}
@@ -250,6 +267,7 @@ var j = {
 	},
 	unloadModule: function(name, h, d) {
 		if (!j.isset(j.modules[name])) {
+			delete require.cache[require.resolve('./'+name)];
 			if (j.isset(h)) h(d);
 			return;
 		}
@@ -272,15 +290,11 @@ var j = {
 		j.bot = bot;
 		j.public.bot = bot;
 		j.run.vm = require('vm');
-		//it
-		// at
-		//look
+		
 		j.on.ar = {};
 		j.on.ids = {};
 		j.on.data = {};
 		j.on.events = {};
-		// weird huh
-		// not palled
 		var events  =[
 			'speak',
 			'newsong',
@@ -288,26 +302,39 @@ var j = {
 			'registered',
 			'update_votes',
 			'deregistered',
+			'roomChanged',
 			'pmmed',
+			'rem_dj',
+			'add_dj',
 		];
+		
 		for (var i=0,l=events.length; i<l; ++i) {
 			var event = events[i];
-			j.bot.on(event, function(d){
-				j.dispatch(d.command, d);
-			});
+			(function(event, j) {
+				j.bot.on(event, function(d) {
+					j.dispatch(event, d);
+				});
+			})(event, j);
 		}
 		
 		j.on(this, 'speak', j.onSpeak);
 		j.on(this, 'newsong', j.onNewSong);
 		j.on(this, 'registered', j.onUserJoin);
 		j.on(this, 'deregistered', j.onUserPart);
-		j.on(this, 'roomChanged', function(data) {
+		j.on(this, 'rem_dj', function(d, j) {
+			j.djs.splice(j.djs.indexOf(d.user[0].userid),1);
+		}, this);
+		j.on(this, 'add_dj', function(d, j) {
+			j.djs.push(d.user[0].userid);
+		}, this);
+		j.on(this, 'roomChanged', function(data, j) {
+			j.log('I\'m pumped about this new room!');
+			j.djs = data.room.metadata.djs
 			var djs = [];
 			for (var user in data.users) {
 				user = data.users[user];
 				djs.push(user.userid);
-				if (typeof j.users[user.userid] == "undefined")
-					j.users[user.userid] = new User(user.userid, user.name);
+				j.users[user.userid] = new User(user.userid, user.name, j);
 			}
 			for (var user in j.users) {
 				if (user.length < 24)
@@ -318,7 +345,7 @@ var j = {
 				}
 			}
 			j.room = data.room;
-		});
+		}, this);
 		bot.roomRegister(room);
 		
 		for (var i=0,l=j.autoload.length; i<l; ++i) {
@@ -329,18 +356,20 @@ var j = {
 		j.log("Dick.");
 	},
 	unload: function() {
-		var ar = [j.saveSettings];
-		for (var mod in j.modules) {
-			ar.push((function(mod){
-				return (function(c, d) {
-					j.unloadModule(mod, c, d);
-				});
-			})(mod));
-		}
-		j.process(ar, function() {
-			j.log("Over and out.");
-			process.exit();
-		});
+		flow.exec(
+			function() {
+				j.saveSettings(this);
+			}, function() {
+				var lock = this.MULTI();
+				for (var mod in j.modules) {
+					j.unloadModule(mod, this.MULTI(mod));
+				};
+				lock();
+			}, function() {
+				j.log("Over and out.");
+				process.exit();
+			}
+		);
 	},
 	checkSpam: function() {
 		j.log("checking spam "+j.spamCount);
@@ -357,9 +386,9 @@ var j = {
 		if (!j.isset(j.onSpeak.fun))
 			j.onSpeak.fun = true;
 
-		if (!j.isset(j.users[d.userid])) {
-			j.users[d.userid] = new User(d.userid, d.name);
-		} else j.users[d.userid].idleTimer = (new Date()).getTime();
+		
+		j.users[d.userid] = new User(d.userid, d.name, j);
+		
 		if (j.isset(j.userNames[d.name])) {
 			j.userNames[d.name] = d.userid;
 		}
@@ -376,32 +405,31 @@ var j = {
 				j.log(j.color.red(d.name + " ran " + d.text));
 				// check if doc awk is in da house
 				var msg = '';
-				if (typeof j.users[j.specialUsers.docawk] == "undefined") {
-					j.bot.roomInfo(j.room, function(data) {
-						for (var dj in data.room.metadata.djs) {
-							dj = data.room.metadata.djs[dj];
-							if (typeof j.users[dj] != "undefined") {
-								var user = j.users[dj];
-								var idle = Math.floor(user.getIdleTime()/1000);
-								if (idle < 300)
-									continue;
-								if (idle > 600)
-									msg += '@';
-								var timeStr = Math.floor(idle/60)+':'+(idle%60);
-								if (timeStr.substr(-2,1) == ":") {
-									timeStr = timeStr.substr(0, timeStr.length-1) + '0' + timeStr.substr(-1);
-								}
-								msg += user.name + ': ' + timeStr + ' || ';
-							} else {
-								msg += '@'+user.name + ': magic? || ';
+				//if (typeof j.users[j.specialUsers.docawk] == "undefined") {
+				j.bot.roomInfo(j.room, function(data) {
+					for (var dj in data.room.metadata.djs) {
+						dj = data.room.metadata.djs[dj];
+						if (typeof j.users[dj] != "undefined") {
+							var user = j.users[dj];
+							var idle = Math.floor(user.getIdleTime()/1000);
+							if (idle < 300)
+								continue;
+							if (idle > 600)
+								msg += '@';
+							var timeStr = Math.floor(idle/60)+':'+(idle%60);
+							if (timeStr.substr(-2,1) == ":") {
+								timeStr = timeStr.substr(0, timeStr.length-1) + '0' + timeStr.substr(-1);
 							}
+							msg += user.name + ': ' + timeStr + ' || ';
+						} else {
+							msg += '@'+user.name + ': magic? || ';
 						}
-						if (msg.length == 0)
-							j.bot.speak("No one is idle.");
-						else
-							j.bot.speak('Idle: ' + msg.substr(0,msg.length-3));
-					});
-				}
+					}
+					if (msg.length == 0)
+						j.bot.speak("No one is idle.");
+					else
+						j.bot.speak('Idle: ' + msg.substr(0,msg.length-3));
+				});
 				return;
 			} else if (cmd[0] == "/eval") { j.admin(d.userid, function(cmd) {
 				j.log(j.color.red(d.name + " ran " + d.text));
@@ -446,7 +474,7 @@ var j = {
 	onUserJoin: function(d) {
 		for (var user in d.user) {
 			user = d.user[user];
-			j.users[user.userid] = new User(user.userid, user.name);
+			j.users[user.userid] = new User(user.userid, user.name, j);
 			j.log(j.color.grey(user.name+' has joined'));
 		}
 	},
@@ -462,9 +490,10 @@ var j = {
 	onNewSong: function(d) {
 		var song = d.room.metadata.current_song;
 		j.log(j.color.yellow('New Song\nDj: '+song.djname+'\nSong: '+song.metadata.song+'\nArtist: '+song.metadata.artist));
-		setTimeout(function(){
-			j.bot.vote('up');
-		}, (15*Math.random())+10);
+		//setTimeout(function(){
+		//	j.bot.vote('up');
+		//}, (15*Math.random())+10);
+		// :(
 	},
 	onCommand: function(msg) {
 		if (msg == "undefined" || msg.length < 1) {
@@ -489,11 +518,10 @@ var j = {
 								if (timeStr.substr(-2,1) == ":") {
 									timeStr = timeStr.substr(0, timeStr.length-1) + '0' + timeStr.substr(-1);
 								}
-								console.log(j.color.blue(user.name) + ' '+timeStr);
+								j.log(j.color.blue(user.name) + ' '+timeStr);
 							}
 						}
 					});
-					//j.log
 					break;
 				case "load":
 					j.loadModule(msg[1]);
@@ -504,9 +532,13 @@ var j = {
 				case "close":
 					j.unload();
 					break;
+				case '':
+					if (msg.length > 1)
+						j.speak('/'+msg[1]);
+					break;
 			}
 		} else {
-			j.bot.speak(msg);
+			j.speak(msg);
 		}
 	},
 	isset: function(d) {
@@ -597,7 +629,7 @@ var j = {
 		return ret;
 	},
 	getId: function() {
-		return ((Math.random()*0xefffffffffffffff + 0x1000000000000000).toString(16));
+		return ((Math.random()*0xefffffff + 0x10000000).toString(16));
 	},
 	process: function(ar, cb, d) {
 		var data = j.copy(d);
@@ -622,7 +654,7 @@ var j = {
 		}
 	},
 	run: function(c, speak, d) {
-		try {
+//		try {
 			if (typeof c == "string")
 				res = eval(c);
 			else if (typeof c == "function")
@@ -634,11 +666,11 @@ var j = {
 				j.log(res);
 			if (j.isset(res) && speak)
 				j.bot.speak(res);
-		} catch(e) {
-			if (speak)
-				j.bot.speak("nope.avi: " + e.message);
-			j.util.puts(e.stack);
-		}
+//		} catch(e) {
+//			if (speak)
+//				j.bot.speak("nope.avi: " + e.message);
+//			require('util').puts(e.stack);
+//		}
 	},
 	call: function(c, d) {
 		setTimeout(function() {
@@ -665,8 +697,10 @@ process.on('uncaughtException', function (e) {
 	j.log(j.color.error('!!!!!!!!!!Uncaught exception!!!!!!!!!!'));
 	j.log('Exception: ' + e.message);
 	console.log(); // what of it.
-	util.puts(e.stack);
+	require('util').puts(e.stack);
 	j.log(j.color.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'));
 	j.log('');
+	setTimeout(function(){j.unload();}, 1);
 	return true;
 });
+
