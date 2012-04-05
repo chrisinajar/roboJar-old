@@ -11,7 +11,7 @@
 	}
 	
 	// defines a flow given any number of functions as arguments
-	function define() {	
+	function define() {
 		var thisFlow = function() {
 			applyArgs(thisFlow.exec, thisFlow, arguments);
 		}
@@ -128,7 +128,7 @@
 				this.curItem += 1;
 				this.job(this.items[this.curItem - 1]);
 			}
-	 
+
 		},function() {
 			if (this.finish) this.finish();
 		}

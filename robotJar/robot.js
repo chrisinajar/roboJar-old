@@ -35,7 +35,8 @@ var j = {
 		'pm',
 		'strngr',
 		'fun',
-		'slottimer'
+		'slottimer',
+		'djlimit'
 	],
 	bot: null,
 	util: null,
@@ -700,7 +701,7 @@ process.on('uncaughtException', function (e) {
 	require('util').puts(e.stack);
 	j.log(j.color.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'));
 	j.log('');
-	setTimeout(function(){j.unload();}, 1);
+	setTimeout(function(){j.unload();}, 1000);
 	return true;
 });
 
