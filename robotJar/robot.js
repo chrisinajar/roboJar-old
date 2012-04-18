@@ -202,7 +202,11 @@ var j = {
 		reset: function(){return '\u001b[0m';}
 	},
 	'public': {},
-	log: function(msg) {
+	log: function() {
+		for (var i = 0; i < arguments.length; ++i)
+			j.logLine(arguments[i]);
+	},
+	logLine: function(msg) {
 		j.rl.pause();
 		var cpos = j.rl.cursor;
 		//process.stdout.write(j.term.save());
@@ -680,7 +684,8 @@ process.on('uncaughtException', function (e) {
 	require('util').puts(e.stack);
 	j.log(j.color.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'));
 	j.log('');
-	setTimeout(function(){j.unload();}, 1000);
+	if (!j.dev)
+		setTimeout(function(){j.unload();}, 1000);
 	return true;
 });
 
