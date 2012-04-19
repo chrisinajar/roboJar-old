@@ -17,7 +17,8 @@
  */
 
 // There's some code taken from 'mscdex' down there somewhere ---v
-var flow = require('./flow');
+var flow = require('flow'),
+	config = require('./config');
 
 var User = function(userid, name, j) {
 	this.userid = userid;
@@ -35,15 +36,7 @@ User.prototype.getAwesomeIdleTime = function() {
 }
 
 var j = {
-	autoload: [
-		'admin',
-		'songstats',
-		'pm',
-		'strngr',
-		'fun',
-		'slottimer'/*,
-		'djlimit'*/
-	],
+	autoload: config.autoload,
 	bot: null,
 	util: null,
 	room: null,
@@ -75,26 +68,13 @@ var j = {
 			"Mi bebé está en llamas, me envió a un quiropráctico",
 		],
 	},
-	specialUsers: {
-		'chris': '4e42c21b4fe7d02e6107b1ff',
-		'docawk': '4e1b661a4fe7d0314a05b6cb',
-		'cheep': '4dfff25ba3f75104e306e495',
-		'tf': '4e4069f5a3f7517bcc010a1c',
-		'neva': '4e446bb94fe7d02a4301e4d0',
-		'justice': '4e399773a3f751255300be75',
-		'blue': '4e0611d54fe7d01d08005d4f',
-		'izzy': '4e26e4214fe7d05f3a07a176',
-		'topher': '4e569c79a3f75149df032f60',
-		'cmazz': '4e3195b54fe7d015d50f05ba',
-		'pooch': '4e1b484b4fe7d03153057e4d',
-		'lsbd': '4e1b0279a3f75162f902e27b'
-	},
+	specialUsers: config.specialUsers,
 	admin: function(id, c, d) {
 		if (id == j.specialUsers.chris)
-			c(d);
+			return c(d);
 		j.bot.roomInfo(j.room, function(data) {
 			if (data.room.metadata.moderator_id.indexOf(id) >= 0)
-				c(d);
+				return c(d);
 		});
 	},
 	settings: {
@@ -214,7 +194,7 @@ var j = {
 		console.log(msg);
 		j.rl.prompt();
 		if (j.rl.output.cursorTo)
-			j.rl.output.cursorTo('roboJar> '.length + cpos);
+			j.rl.output.cursorTo(config.name+'> '.length + cpos);
 		j.rl.cursor = cpos;
 		//j.rl.cursorTo(cpos);
 		//process.stdout.write(j.term.end());
@@ -323,9 +303,9 @@ var j = {
 		var self = this;
 		flow.exec(
 			function() {
-				var cradle = require('cradle');
+				var Connection = require('cradle').Connection;
 				var http = require('http');
-				j.db = new(cradle.Connection)().database('robojar');
+				j.db = (new Connection()).database(config.name.toLowerCase());
 				j.util = util;
 				j.bot = bot;
 				j.public.bot = bot;

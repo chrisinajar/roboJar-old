@@ -20,12 +20,13 @@
 var Bot = require('../ttapi/index'),
     readline = require('readline'),
     util = require('util'),
-    jar = require('./robot').roboJar;
+    jar = require('./robot').roboJar,
+	config = require('./config');
 
 // set up my settings for settage at a future date.
-var AUTH  = process.argv[2]; // 'auth+live+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
-var USERID = process.argv[3]; //'4f2ca85aa3f75176bb00a06c'
-var ROOMID = process.argv[4]; //'4ded3b7e99968e1d29000047'
+var AUTH  = config.auth; // 'auth+live+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+var USERID = config.userid; //'4f2ca85aa3f75176bb00a06c'
+var ROOMID = config.roomid; //'4ded3b7e99968e1d29000047'
 
 var bot = new Bot(AUTH, USERID);
 

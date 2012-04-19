@@ -28,7 +28,6 @@ var Admin = function(j) {
 	}, j);
 	
 	j.on(this, 'pmmed', function(d, j) {
-	
 		j.bot.getProfile(d.senderid, function(profile) {
 			d.userid = d.senderid;
 			d.name = profile.name;
