@@ -1,0 +1,17 @@
+{
+	"name": "roboJar",
+	"version": "0.1.0",
+	"author": "Chris Vickery <cvickery@symbotic.com>",
+	"description": "A modular bot for turntable.fm",
+	"main": "./src/index.js",
+	"dependencies" : {
+		"ttapi" :  "*",
+		"cradle" :  "*",
+		"flow" :  "0.2.x"
+	},
+	"license": "freeBSD",
+	"engine": {
+		"node": ">=0.6"
+	}
+}
+
