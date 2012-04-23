@@ -17,7 +17,7 @@
  */
 
 // load my shit!
-var Bot = require('../ttapi/index'),
+var Bot = require('ttapi'),
     readline = require('readline'),
     util = require('util'),
     jar = require('./robot').roboJar,
@@ -36,7 +36,7 @@ bot.on('ready', function() {
 
 // start up the console
 rl = readline.createInterface(process.stdin, process.stdout);
-rl.setPrompt('roboJar> ', 9);
+rl.setPrompt(config.name+'> ', 9);
 rl.on('line', jar.onCommand);
 rl.on('close', jar.unload);
 rl.prompt();
