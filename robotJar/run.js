@@ -31,6 +31,7 @@ var ROOMID = config.roomid; //'4ded3b7e99968e1d29000047'
 var bot = new Bot(AUTH, USERID);
 
 bot.on('ready', function() {
+	console.log('Bot is ready!');
 	jar.onLoad(util, bot, ROOMID);
 });
 

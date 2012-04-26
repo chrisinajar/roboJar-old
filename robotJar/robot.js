@@ -17,7 +17,7 @@
  */
 
 // There's some code taken from 'mscdex' down there somewhere ---v
-var flow = require('flow'),
+var flow = require('jar-flow'),
 	config = require('./config');
 
 var User = function(userid, name, j) {
@@ -85,7 +85,6 @@ var j = {
 						continue;
 
 					var user = j.users[id];
-					j.log('int! ['+user.idleTimer+'] ' + parseInt(user.idleTimer));
 					
 					if (user.idleTimer)
 						user.idleTimer = parseInt(user.idleTimer)
@@ -100,8 +99,7 @@ var j = {
 						
 					user.getIdleTime = (new User).getIdleTime;
 					user.getAwesomeIdleTime = (new User).getAwesomeIdleTime;
-						
-					j.log(user);
+
 					if (user.getIdleTime() > 1333681804749)
 						user.idleTimer = (new Date()).getTime();
 					
@@ -194,7 +192,7 @@ var j = {
 		console.log(msg);
 		j.rl.prompt();
 		if (j.rl.output.cursorTo)
-			j.rl.output.cursorTo(config.name+'> '.length + cpos);
+			j.rl.output.cursorTo((config.name+'> ').length + cpos);
 		j.rl.cursor = cpos;
 		//j.rl.cursorTo(cpos);
 		//process.stdout.write(j.term.end());
@@ -374,7 +372,12 @@ var j = {
 					j.room = data.room;
 				}, self);
 
-				bot.roomRegister(room);
+				console.log('Registering room ' + room);
+				bot.roomRegister(room, function(d) {
+					j.log('Room register is done!');
+					j.log(arguments);
+					j.log('');
+				});
 				
 				for (var i=0,l=j.autoload.length; i<l; ++i) {
 					j.loadModule(j.autoload[i]);
