@@ -22,6 +22,11 @@ var BanList = function(j) {
 	self.j = j;
 	self.banlist = {};
 	
+	j.getDoc('banlist', function(s, doc) {
+		if (doc)
+			self.banlist = doc;
+	});
+	
 	//j.on(this, 'speak', function(d, j) {
 	//	self.handle(j.speak, d);
 	//}, j);
@@ -31,25 +36,22 @@ var BanList = function(j) {
 			var userid = d.user[i].userid;
 			// check for ban!
 			if (userid in self.banlist) {
-				j.bot.boot(userid);
+				j.bot.getProfile(self.banlist[userid], function(d){
+					j.bot.boot(userid, "You have been banned by: " + d.name);
+				});
+				//j.bot.boot(userid);
 			}
 		}
 	}, j);
 	
 	j.on(this, 'pmmed', function(d, j) {
-		j.log('pmmed', d);
 		j.admin(d.senderid, function() {
-			j.log('admin', d);
+			d.userid = d.senderid;
 			self.handle(function(msg) {
 				j.bot.pm(msg, d.senderid);
 			}, d);
 		});
 	}, j);
-	
-	j.getDoc('banlist', function(s, doc) {
-		if (doc)
-			self.banlist = doc;
-	});
 	
 	self.handle = function(reply, d) {
 		if (d.text.substr(0,1) != "/")

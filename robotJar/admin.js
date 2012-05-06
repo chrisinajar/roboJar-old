@@ -86,7 +86,7 @@ var Admin = function(j) {
 						}, cmd[1]);
 					}, true);
 				}, 0);
-			} else if (cmd[0] == "/bootdj") {
+			} else if (cmd[0] == "/escort") {
 				if (cmd.length < 2)
 					return reply("You must specify a user to boot");
 				var user="";
@@ -113,9 +113,33 @@ var Admin = function(j) {
 						j.speak(senderName + " drops some justice");
 					}
 				});
-			} else if (cmd[0] == "/boasdasdot") {
+			} else if (cmd[0] == "/boot") {
 				if (cmd.length < 2)
-					reply("You must specify a user to boot");
+					return reply("You must specify a user to boot");
+				var user="";
+				var userid=null;
+				var senderName = d.name;
+				for (var i = 1; i < cmd.length; ++i)
+					user += cmd[i]+(i+1 === cmd.length?"":" ");
+
+				if (user in j.userNames) {
+					userid = j.userNames[user];
+				}
+				if (user in j.users) {
+					userid = user;
+					user = j.users[userid].name;
+				}
+				if (userid === null)
+					return reply("Failed to find the user " + user);
+				reply(":boot: " + user + " ("+userid+")");
+				j.bot.boot(userid, function(d) {
+					if (d.err) {
+						reply("Sorry! " + d.err.toString());
+					} else {
+						reply("It has been done.");
+						j.speak(senderName + " drops some justice");
+					}
+				});
 			} else if (cmd[0] == "/say" || cmd[0] == "/msg") {
 				if (cmd.length < 2)
 					return reply("I'm not saying that.");

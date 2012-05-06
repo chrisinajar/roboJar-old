@@ -34,6 +34,11 @@ User.prototype.getIdleTime = function() {
 User.prototype.getAwesomeIdleTime = function() {
 	return ((new Date()).getTime() - this.awesomeTimer);
 }
+User.prototype.getNetIdleTime = function() {
+	var chati = this.getIdleTime();
+	var awesomei = this.getIdleTime();
+	return 	(chati > awesomei ? awesomei : chati);
+}
 
 var j = {
 	autoload: config.autoload,
@@ -97,8 +102,9 @@ var j = {
 						user.awesomeTimer = (new Date()).getTime();
 
 						
-					user.getIdleTime = (new User).getIdleTime;
-					user.getAwesomeIdleTime = (new User).getAwesomeIdleTime;
+					user.getIdleTime = User.prototype.getIdleTime;
+					user.getAwesomeIdleTime = User.prototype.getAwesomeIdleTime;
+					user.getNetIdleTime = User.prototype.getNetIdleTime;
 
 					if (user.getIdleTime() > 1333681804749)
 						user.idleTimer = (new Date()).getTime();
