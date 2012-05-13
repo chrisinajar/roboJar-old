@@ -335,6 +335,7 @@ var j = {
 					'pmmed',
 					'rem_dj',
 					'add_dj',
+					'booted_user'
 				];
 				
 				for (var i=0,l=events.length; i<l; ++i) {
@@ -351,6 +352,7 @@ var j = {
 				j.on(self, 'newsong', j.onNewSong);
 				j.on(self, 'registered', j.onUserJoin);
 				j.on(self, 'deregistered', j.onUserPart);
+				j.on(self, 'booted_user', j.onUserPart);
 				j.on(self, 'rem_dj', function(d, j) {
 					j.djs.splice(j.djs.indexOf(d.user[0].userid),1);
 				}, self);

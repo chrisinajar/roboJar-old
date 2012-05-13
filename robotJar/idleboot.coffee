@@ -1,4 +1,4 @@
-
+config = require './config'
 
 class IdleBoot
 	constructor:(@j)->
@@ -8,13 +8,14 @@ class IdleBoot
 			@endSong(d)
 		
 		j.on this, 'speak', (d)=>
-			@cancel(d.userid)
+			@cancel(d.userid, true)
 
-	cancel: (userid)->
+	cancel: (userid, good)->
 		if (@timers[userid])
 			clearTimeout @timers[userid]
 			delete @timers[userid]
-			@j.speak('You\'re good, thanks!')
+			if (good)
+				@j.speak('You\'re good, thanks!')
 		# j:j.modules.idleboot.friendlyBoot('4e42c21b4fe7d02e6107b1ff')
 	endSong: (d)->
 		j = @j
@@ -24,7 +25,7 @@ class IdleBoot
 		
 		console.log 'idle boot', idletime
 		
-		if (idletime > (1000*60*30))
+		if (idletime > (config.idleBoot || (1000*60*30)))
 			@friendlyBoot(userid)
 		
 	friendlyBoot: (userid)->

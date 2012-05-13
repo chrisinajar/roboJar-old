@@ -21,5 +21,9 @@ module.exports = {
 	// Something used by modules a lot...
 	specialUsers: {
 		'chrisinajar': '4e42c21b4fe7d02e6107b1ff'
-	}
+	},
+	
+	// How long before we bust out the :boot: when idleboot is enabled.
+	// Defaults to 30 minutes
+	// idleBoot: (1000*60*30)
 };
