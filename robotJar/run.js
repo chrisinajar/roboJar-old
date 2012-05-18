@@ -21,7 +21,10 @@ var Bot = require('ttapi'),
     readline = require('readline'),
     util = require('util'),
     jar = require('./robot').roboJar,
-	config = require('./config');
+    config = require('./config');
+
+// Add support for coffee modules.
+require('coffee-script');
 
 // set up my settings for settage at a future date.
 var AUTH  = config.auth; // 'auth+live+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
