@@ -21,7 +21,10 @@ var Bot = require('ttapi'),
     readline = require('readline'),
     util = require('util'),
     jar = require('./robot').roboJar,
-	config = require('./config');
+    config = require('./config');
+
+// Add support for coffee modules.
+require('coffee-script');
 
 console.log();
 console.log('Starting up...');
