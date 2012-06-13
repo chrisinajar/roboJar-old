@@ -3,9 +3,19 @@ config = require './config'
 class IdleBoot
 	constructor:(@j)->
 		@timers = {}
+		@warnings = []
 		
 		j.on this, 'endsong', (d)=>
 			@endSong(d)
+
+		j.on this, 'rem_dj', (d)=>
+			@cancel(d.userid)
+
+		j.on this, 'booted_user', (d)=>
+			@cancel(d.userid)
+
+		j.on this, 'deregistered', (d)=>
+			@cancel(d.userid)
 		
 		j.on this, 'speak', (d)=>
 			@cancel(d.userid, true)
@@ -27,8 +37,8 @@ class IdleBoot
 		
 		if (idletime > (config.idleBoot || (1000*60*30)))
 			@friendlyBoot(userid)
-		
-	friendlyBoot: (userid)->
+
+	friendlyBoot: (userid)=>
 		if (@timers[userid])
 			return
 		j = @j
@@ -40,11 +50,12 @@ class IdleBoot
 			j.speak('@'+user.name+' wake up! No one wants an AFK dj! (warning 2)')
 			@timers[userid] = setTimeout warn3, (1000*60)
 		warn3 = =>
-			j.speak('@'+user.name+' wake up! No one wants an AFK dj! (LAST WARNING)')
-			@timers[userid] = setTimeout dasboot, (1000*30)
+			j.speak('@'+user.name+' wake up! No one wants an AFK dj! (LAST WARNING, :boot: IN A FEW SECONDS)')
+			@timers[userid] = setTimeout dasboot, (1000*((Math.random()*20)+15))
 		dasboot = =>
 			j.speak('Sorry bro')
 			j.bot.remDj (userid)
+			@cancel(userid)
 		
 		@timers[userid] = setTimeout warn2, (1000*60)
 			

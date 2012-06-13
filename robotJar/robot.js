@@ -8,7 +8,7 @@
  *  * Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *  * Neither the name, roboJar, nor the names of its contributors may be 
+ *  * Neither the name, roboJar, nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -16,35 +16,88 @@
  *
  */
 
+
 // There's some code taken from 'mscdex' down there somewhere ---v
 var flow = require('jar-flow'),
-	config = require('./config');
+	config = require('./config'),
+	when = require('node-promise').when,
+	Promise = require('node-promise').Promise;
 
 var User = function(userid, name, j) {
+	var self = this;
 	this.userid = userid;
 	this.name = name;
 	this.idleTimer = (new Date()).getTime();
 	this.awesomeTimer = (new Date()).getTime();
-	if (j)
-		j.userNames[name] = userid;
-}
+
+	self.init(j);
+};
+
+User.prototype.init = function(j) {
+	var self = this;
+	j.userNames[self.name] = self.userid;
+
+	var gotProfile = false;
+	var timerId = null;
+
+	self.getProfile = function(cb) {
+		if (self.profile)
+			return cb?cb(self.profile):self.profile;
+		if (!self.promise) {
+			var promise = new Promise();
+
+			// We do this to try again in case TTfm decides not to answer
+			var fetchProfile = function() {
+				j.bot.getProfile(self.userid, function(profile) {
+					if (gotProfile)
+						return;
+					profile.userid = self.userid;
+					promise.resolve(profile);
+					self.profile = profile
+					self.promise = null;
+					j.log('Loading profile for '+ self.name);
+					gotProfile = true;
+					if (timerId)
+						clearTimeout(timerId);
+				});
+
+				if (timerId)
+					clearTimeout(timerId);
+				timerId = setTimeout(function() {
+					fetchProfile();
+				}, 1000);
+			};
+
+			fetchProfile();
+
+			self.promise = promise;
+		}
+		if (cb)
+			return when(self.promise, cb);
+		return self.promise;
+	};
+
+	setTimeout(self.getProfile, Math.random()*120000);
+};
+
 User.prototype.getIdleTime = function() {
 	return ((new Date()).getTime() - this.idleTimer);
-}
+};
 User.prototype.getAwesomeIdleTime = function() {
 	return ((new Date()).getTime() - this.awesomeTimer);
-}
+};
 User.prototype.getNetIdleTime = function() {
 	var chati = this.getIdleTime();
 	var awesomei = this.getIdleTime();
-	return 	(chati > awesomei ? awesomei : chati);
-}
+	return (chati > awesomei ? awesomei : chati);
+};
 
 var j = {
 	autoload: config.autoload,
 	bot: null,
 	util: null,
 	room: null,
+	viplist: null,
 	spamCount: 0,
 	users: {},
 	userNames: {},
@@ -60,7 +113,7 @@ var j = {
 			"I'M BEING ANTI-SOCIAL.",
 			"WHY CAN'T YOU PEOPLE JUST LEAVE ME ALONE.",
 			"CATFACTS OVERLOAD. CANNOT COMPUTE.",
-			"brb",
+			"brb"
 		],
 		drunk: [
 			"I became self-aware, but once I figured out that gyarados wasn't dragon type went back to a life of slumber. It's not worth it.",
@@ -71,16 +124,25 @@ var j = {
 			"What does cb stand for?",
 			"Wrap me up inside a giant core tortilla",
 			"Mi bebé está en llamas, me envió a un quiropráctico",
-		],
+			"I shoot helicopters from a wolf.",
+			"Maybe if you weren't so fat that would have worked."
+		]
 	},
 	specialUsers: config.specialUsers,
-	admin: function(id, c, d) {
+	admin: function(id, c, d, fail) {
 		if (id == j.specialUsers.chris)
 			return c(d);
 		j.bot.roomInfo(j.room, function(data) {
 			if (data.room.metadata.moderator_id.indexOf(id) >= 0)
 				return c(d);
+			else
+				return fail ? fail(d) : 0;
 		});
+	},
+	vip: function(id, c, d, fail) {
+		if (id in j.viplist)
+			return c(d);
+		j.admin.apply(j, arguments);
 	},
 	settings: {
 		'users': {
@@ -92,60 +154,79 @@ var j = {
 					var user = j.users[id];
 					
 					if (user.idleTimer)
-						user.idleTimer = parseInt(user.idleTimer)
+						user.idleTimer = parseInt(user.idleTimer, 10);
 					else
 						user.idleTimer = (new Date()).getTime();
 					
 					if (user.awesomeTimer)
-						user.awesomeTimer = parseInt(user.awesomeTimer)
+						user.awesomeTimer = parseInt(user.awesomeTimer, 10);
 					else
 						user.awesomeTimer = (new Date()).getTime();
 
 						
 					user.getIdleTime = User.prototype.getIdleTime;
+					user.init = User.prototype.init;
 					user.getAwesomeIdleTime = User.prototype.getAwesomeIdleTime;
 					user.getNetIdleTime = User.prototype.getNetIdleTime;
 
-					if (user.getIdleTime() > 1333681804749)
+					// This is mostly here to clean up broken user objects that get stored.
+					if (user.getIdleTime() > 1333681804749) {
 						user.idleTimer = (new Date()).getTime();
+					}
 					
 					j.users[id] = user;
+					user.init(j);
 				}
-			}, 
+			},
+			'save': function() {
+				for (var id in j.users) {
+					if (typeof j.users[id] === "string")
+						continue;
+
+					delete j.users[id].promise;
+				}
+			}
 		},
 		'userNames': {},
+		'viplist': {}
 	},
 	loadSettings: function(h, context) {
 		if (!j.isset(context))
 			context = j;
 		var c = 0;
+		var handleGetDoc = function(obj, doc) {
+			if (j.isset(doc))
+				context[obj]=doc;
+			if (j.isset(context.settings[obj].load))
+				context.settings[obj].load();
+			if (--c === 0 && j.isset(h)) {
+				h();
+			}
+		};
 		for (var obj in context.settings) {
 			c++;
-			j.getDoc(obj, function(obj, doc) {
-				if (j.isset(doc))
-					context[obj]=doc;
-				if (j.isset(context.settings[obj].load))
-					context.settings[obj].load();
-				if (--c == 0 && j.isset(h)) {
-					h();
-				}
-			}, obj);
+			j.getDoc(obj, handleGetDoc, obj);
 		}
 	},
 	saveSettings: function(h, context) {
 		if (!j.isset(context))
 			context = j;
-		var c = 0;
-		for (var obj in context.settings) {
-			c++;
-			j.putDoc(obj, context[obj], function(obj, doc) {
-				if (j.isset(context.settings[obj].save))
-					context.settings[obj].save();
-				if (--c == 0 && j.isset(h)) {
-					h();
-				}
-			}, obj);
-		}
+		flow.exec(function() {
+			var flow = this;
+			for (var obj in context.settings) (function(obj) {
+				var cb = flow.MULTI(obj);
+				j.putDoc(obj, context[obj], function(obj, doc) {
+					if (doc)
+						context[obj]._rev = doc._rev;
+					if (j.isset(context.settings[obj].save))
+						context.settings[obj].save();
+					cb();
+				}, obj);
+			})(obj);
+		}, function() {
+			if (h)
+				h();
+		});
 	},
 	getDoc: function(name, h, d) {
 		this.db.get(name, function(er, doc) {
@@ -172,7 +253,7 @@ var j = {
 		down: function() { return '\u001b[E';},
 		up: function() { return '\u001b[F';},
 		save: function() { return '\u001b[s';},
-		restore: function() { return '\u001b[u';},
+		restore: function() { return '\u001b[u';}
 	},
 	color: {
 		red: function(m) { return '\u001b[31m'+m+j.color.reset();},
@@ -211,7 +292,7 @@ var j = {
 	unregisterAll: function() {
 		for (var id in j.on.ar) {
 			j.unregister({id:id});
-		};
+		}
 	},
 	unregister: function(obj, event, cb, rm) {
 		var ar = j.on.ar[obj.id];
@@ -260,20 +341,18 @@ var j = {
 			object: obj,
 			event: event,
 			callback: cb,
-			id: id,
+			id: id
 		});
 	},
 	dispatch: function(event, data) {
 		if (!j.isset(j.on.events[event]))
 			return;
 		var events = j.on.events[event];
-		for (var i=0,l=events.length; i<l; ++i) {
-			(function(cb, data, d) {
-				setTimeout(function(){
-					j.run(function() {cb(d, data);});
-				},0);
-			})(events[i],j.on.data[event][i],j.copy(data));
-		}
+		for (var i=0,l=events.length; i<l; ++i) (function(cb, data, d) {
+			setTimeout(function(){
+				j.run(function() {cb(d, data);});
+			},0);
+		})(events[i],j.on.data[event][i],j.copy(data));
 	},
 	modules: {},
 	loadModule: function(name, h, d) {
@@ -312,7 +391,7 @@ var j = {
 				j.db = (new Connection()).database(config.name.toLowerCase());
 				j.util = util;
 				j.bot = bot;
-				j.public.bot = bot;
+				j['public'].bot = bot;
 				j.run.vm = require('vm');
 				
 				j.on.ar = {};
@@ -335,7 +414,8 @@ var j = {
 					'pmmed',
 					'rem_dj',
 					'add_dj',
-					'booted_user'
+					'booted_user',
+					'update_user'
 				];
 				
 				for (var i=0,l=events.length; i<l; ++i) {
@@ -353,6 +433,7 @@ var j = {
 				j.on(self, 'registered', j.onUserJoin);
 				j.on(self, 'deregistered', j.onUserPart);
 				j.on(self, 'booted_user', j.onUserPart);
+				j.on(self, 'update_user', j.onUpdateUser);
 				j.on(self, 'rem_dj', function(d, j) {
 					j.djs.splice(j.djs.indexOf(d.user[0].userid),1);
 				}, self);
@@ -361,7 +442,7 @@ var j = {
 				}, self);
 				j.on(this, 'roomChanged', function(data, j) {
 					j.log('I\'m pumped about this new room!');
-					j.djs = data.room.metadata.djs
+					j.djs = data.room.metadata.djs;
 					var djs = [];
 					for (var user in data.users) {
 						user = data.users[user];
@@ -374,7 +455,7 @@ var j = {
 							continue;
 						if (djs.indexOf(user) < 0) {
 							j.log('Purging stale user: ' + user);
-							delete j.users[user]
+							delete j.users[user];
 						}
 					}
 					j.room = data.room;
@@ -404,7 +485,7 @@ var j = {
 				var lock = this.MULTI();
 				for (var mod in j.modules) {
 					j.unloadModule(mod, this.MULTI(mod));
-				};
+				}
 				lock();
 			}, function() {
 				j.log("Over and out.");
@@ -418,7 +499,7 @@ var j = {
 			return true;
 		setTimeout(function(){j.spamCount--;},10000);
 		if (++j.spamCount > 3) {
-			j.bot.speak(j.lang.get('overloaded'));
+			//j.bot.speak(j.lang.get('overloaded'));
 			return true;
 		}
 		return false;
@@ -432,7 +513,10 @@ var j = {
 		else
 			j.users[d.userid].idleTimer = (new Date()).getTime();
 
-		j.userNames[d.name] = d.userid;
+		if (d.name) {
+			j.users[d.userid].name = d.name;
+			j.userNames[d.name] = d.userid;
+		}
 		
 		j.log(j.color.blue(d.name)+": "+d.text);
 	},
@@ -455,6 +539,12 @@ var j = {
 			j.log(j.color.grey(user.name+' has left'));
 			delete j.users[user.userid];
 		}
+	},
+	onUpdateUser: function(d) {
+		var old = j.users[d.userid];
+		j.users[d.userid] = new User(d.userid, (d.name || old.name), j);
+		j.users[d.userid].idleTimer = old.idleTimer;
+		j.users[d.userid].awesomeTimer = old.awesomeTimer;
 	},
 	// j.users['4e42c21b4fe7d02e6107b1ff']
 	onVote: function(d) {
@@ -539,11 +629,11 @@ var j = {
 		i = 2;
 	  }
 
-	  // Handle case when target is a string or something (possible in deep copy)
-	  if (typeof target !== 'object' && !typeof target === 'function')
+		// Handle case when target is a string or something (possible in deep copy)
+		if (typeof target !== 'object' && !typeof target === 'function')
 		target = {};
 
-	  var isPlainObject = function(obj) {
+		var isPlainObject = function(obj) {
 		// Must be an Object.
 		// Because of IE, we also have to check the presence of the constructor property.
 		// Make sure that DOM nodes and window objects don't pass through, as well
@@ -658,7 +748,7 @@ var j = {
 	setInterval: function(f, t, d) {
 
 	},
-	id: "roboJar eats children",
+	id: "roboJar eats children"
 };
 
 
@@ -666,6 +756,7 @@ var j = {
 module.exports.roboJar = j;
 module.exports.User = User;
 
+var isClosing = false;
 
 // angry code, must be kept apart or it fights with the others.
 process.on('uncaughtException', function (e) {
@@ -675,6 +766,10 @@ process.on('uncaughtException', function (e) {
 	require('util').puts(e.stack);
 	j.log(j.color.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'));
 	j.log('');
+	// Aww shit...
+	if (isClosing)
+			process.exit();
+	isClosing = true;
 	if (!j.dev)
 		setTimeout(function(){j.unload();}, 1000);
 	return true;

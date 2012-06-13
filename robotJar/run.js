@@ -23,6 +23,9 @@ var Bot = require('ttapi'),
     jar = require('./robot').roboJar,
 	config = require('./config');
 
+console.log();
+console.log('Starting up...');
+
 // set up my settings for settage at a future date.
 var AUTH  = config.auth; // 'auth+live+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 var USERID = config.userid; //'4f2ca85aa3f75176bb00a06c'
@@ -30,7 +33,12 @@ var ROOMID = config.roomid; //'4ded3b7e99968e1d29000047'
 
 var bot = new Bot(AUTH, USERID);
 
+var timeoutId = setTimeout(function() {
+	process.exit();
+}, 20000);
+
 bot.on('ready', function() {
+	clearTimeout(timeoutId);
 	console.log('Bot is ready!');
 	jar.onLoad(util, bot, ROOMID);
 });
