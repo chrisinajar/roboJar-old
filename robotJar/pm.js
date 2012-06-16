@@ -18,17 +18,29 @@
 
 
 var PrivateMessages = function(j) {
+	var self = this,
+		bot = j.bot,
+		oldpm = j.bot.pm;
+
 	j.on(this, 'pmmed', function(d, j) {
 		var text = d.text;
 		j.bot.getProfile(d.senderid, function(d) {
-			j.admin(d.userid, function() {
-				j.users[d.userid].idleTimer = (new Date()).getTime();
-			});
+			if (j.users[d.userid])
+				j.admin(d.userid, function() {
+					j.users[d.userid].idleTimer = (new Date()).getTime();
+				});
 			j.log(' '+j.color.cyan(d.name)+'> '+text);
 		});
 	}, j);
-};
 
-PrivateMessages.prototype.unload = function(c,d){c(d);}
+	bot.pm = function(msg) {
+		j.log(' '+j.color.cyan('roboJar')+'> '+msg);
+		oldpm.apply(bot, arguments);
+	}
+
+	self.unload = function(c,d) {
+		c(d);
+	}
+}
 
 module.exports = PrivateMessages;

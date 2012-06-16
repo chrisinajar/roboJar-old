@@ -33,6 +33,10 @@ var User = function(userid, name, j) {
 	self.init(j);
 };
 
+User.prototype.toString = function() {
+	return this.name;
+}
+
 User.prototype.init = function(j) {
 	var self = this;
 	j.userNames[self.name] = self.userid;
@@ -55,7 +59,6 @@ User.prototype.init = function(j) {
 					promise.resolve(profile);
 					self.profile = profile
 					self.promise = null;
-					j.log('Loading profile for '+ self.name);
 					gotProfile = true;
 					if (timerId)
 						clearTimeout(timerId);
@@ -77,7 +80,7 @@ User.prototype.init = function(j) {
 		return self.promise;
 	};
 
-	setTimeout(self.getProfile, Math.random()*120000);
+	self.autoProfileTimer = setTimeout(self.getProfile, Math.random()*120000);
 };
 
 User.prototype.getIdleTime = function() {
@@ -125,7 +128,8 @@ var j = {
 			"Wrap me up inside a giant core tortilla",
 			"Mi bebé está en llamas, me envió a un quiropráctico",
 			"I shoot helicopters from a wolf.",
-			"Maybe if you weren't so fat that would have worked."
+			"Maybe if you weren't so fat that would have worked.",
+			"smiff, take it from here"
 		]
 	},
 	specialUsers: config.specialUsers,
@@ -183,7 +187,19 @@ var j = {
 					if (typeof j.users[id] === "string")
 						continue;
 
-					delete j.users[id].promise;
+					var user = j.users[id];
+
+					var valuesToSave = [
+						'userid',
+						'name',
+						'idleTimer',
+						'awesomeTimer'
+					];
+					var userVo = {};
+					for (var i = 0, l = valuesToSave.length; i<l; ++i) {
+						userVo[valuesToSave[i]] = user [valuesToSave[i]];
+					}
+					j.users[id] = userVo;
 				}
 			}
 		},
@@ -215,13 +231,20 @@ var j = {
 			var flow = this;
 			for (var obj in context.settings) (function(obj) {
 				var cb = flow.MULTI(obj);
-				j.putDoc(obj, context[obj], function(obj, doc) {
-					if (doc)
-						context[obj]._rev = doc._rev;
+				try {
 					if (j.isset(context.settings[obj].save))
 						context.settings[obj].save();
+					j.putDoc(obj, context[obj], function(obj, doc) {
+						if (doc)
+							context[obj]._rev = doc._rev;
+						if (j.isset(context.settings[obj].load))
+							context.settings[obj].load();
+						cb();
+					}, obj);
+				} catch (e) {
+					j.log(e);
 					cb();
-				}, obj);
+				}
 			})(obj);
 		}, function() {
 			if (h)
@@ -241,6 +264,7 @@ var j = {
 		});
 	},
 	putDoc: function(name, obj, h, d) {
+		j.log("Saving setting: " + name);
 		this.db.save(name, obj, function(er, doc) {
 			if (er) j.log(er);
 			j.log("Saved setting: " + name);
@@ -537,6 +561,8 @@ var j = {
 		for (var user in d.user) {
 			user = d.user[user];
 			j.log(j.color.grey(user.name+' has left'));
+			if (j.users[user.userid] && j.users[user.userid].autoProfileTimer)
+				clearTimeout(j.users[user.userid].autoProfileTimer);
 			delete j.users[user.userid];
 		}
 	},
@@ -544,7 +570,6 @@ var j = {
 		var old = j.users[d.userid];
 		j.users[d.userid] = new User(d.userid, (d.name || old.name), j);
 		j.users[d.userid].idleTimer = old.idleTimer;
-		j.users[d.userid].awesomeTimer = old.awesomeTimer;
 	},
 	// j.users['4e42c21b4fe7d02e6107b1ff']
 	onVote: function(d) {
@@ -769,9 +794,10 @@ process.on('uncaughtException', function (e) {
 	// Aww shit...
 	if (isClosing)
 			process.exit();
-	isClosing = true;
-	if (!j.dev)
+	if (!j.dev) {
+		isClosing = true;
 		setTimeout(function(){j.unload();}, 1000);
+	}
 	return true;
 });
 

@@ -16,6 +16,8 @@
  *
  */
 
+var config = require('./config');
+
 
 var Admin = function(j) {
 	var self = this;
@@ -134,6 +136,9 @@ var Admin = function(j) {
 			}
 			if (userid === null)
 				return reply("Failed to find the user " + user);
+
+			if (userid == config.userid)
+				return reply("I'm sorry, I can't let you do that.");
 			reply(":boot: " + user + " ("+userid+")");
 			j.bot.boot(userid, function(d) {
 				if (d.err) {
