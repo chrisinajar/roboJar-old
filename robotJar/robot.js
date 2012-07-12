@@ -91,7 +91,7 @@ User.prototype.getAwesomeIdleTime = function() {
 };
 User.prototype.getNetIdleTime = function() {
 	var chati = this.getIdleTime();
-	var awesomei = this.getIdleTime();
+	var awesomei = this.getAwesomeIdleTime();
 	return (chati > awesomei ? awesomei : chati);
 };
 
@@ -129,7 +129,11 @@ var j = {
 			"Mi bebé está en llamas, me envió a un quiropráctico",
 			"I shoot helicopters from a wolf.",
 			"Maybe if you weren't so fat that would have worked.",
-			"smiff, take it from here"
+			"smiff, take it from here",
+			"roboSalts make my body ready.",
+			"Don't hassle me, I'm a local",
+			"I shot an elephant in my pajamas, how he got in there will haunt me forever.",
+			"HTTP ERROR 418"
 		]
 	},
 	specialUsers: config.specialUsers,
