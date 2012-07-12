@@ -300,6 +300,8 @@ var j = {
 			j.logLine(arguments[i]);
 	},
 	logLine: function(msg) {
+		if (!j.rl)
+			return console.log(msg);
 		j.rl.pause();
 		var cpos = j.rl.cursor;
 		//process.stdout.write(j.term.save());
