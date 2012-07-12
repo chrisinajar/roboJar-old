@@ -39,6 +39,10 @@ class GarbageCollector
 	checkIdleUsers: =>
 		j = @j
 		idlers = []
+		mostidle = {
+			userid: null
+			idle: 0
+		}
 		count = 0
 		checkIdle = (userid)=>
 			if (!j.users[userid])
@@ -48,14 +52,20 @@ class GarbageCollector
 
 			if (!idle)
 				return
+
+			if (!@timers[userid] && mostidle.idle < idle)
+				mostidle.userid = userid
+				mostidle.idle = idle
 			count++
-			if (idle > (4*60*60*1000))
+			if (idle > (3*60*60*1000))
 				idlers.push userid
+
 		checkIdle userid for userid of j.users
 
-		if ((count - @recycling) > 190)
+		idlers.push mostidle.userid
+		if ((count - @recycling) > 196)
 			@recycling++
-			@recycle(idlers)
+			@recycle idlers 
 
 	cancel: (userid, good)->
 		if (@timers[userid])
@@ -64,23 +74,27 @@ class GarbageCollector
 			if (good)
 				@j.bot.pm('/monocle', userid)
 			@recycling--
+			if (@j.users[userid])
+				@j.users[userid].awesomeTimer = (new Date()).getTime()
 
 	recycle: (idlers)=>
-		j = @j	
+		j = @j
 		userid = idlers[Math.round(Math.random()*(idlers.length-1))]
 		for i in [0...10] when ((!j.users[userid]) || @timers[userid])
 			userid = idlers[Math.round(Math.random()*(idlers.length-1))]
-			j.log('trying '+userid)
 
 		if (@timers[userid] || (!j.users[userid]))
 			@recycling--
 			return
 
+		j.log('trying '+userid)
 		j.bot.pm("Hi! I'm a robot fueled by internet juice and afk TTfm listeners. Are you still listening?", userid)
 		
 		user = j.users[userid]
 		j.log('Doing idle check on '+user.name)
-		@timers[userid] = setTimeout warn2, (1000*((Math.random()*20)+15))
+		warn1 = =>
+			j.bot.pm("If you do not reply, you will be booted from the room to make room for active users.", userid)
+			@timers[userid] = setTimeout warn2, (1000*((Math.random()*20)+15))
 		warn2 = =>
 			j.bot.pm("I hunger.", userid)
 			@timers[userid] = setTimeout dasboot, (1000*((Math.random()*20)+15))
@@ -93,9 +107,11 @@ class GarbageCollector
 					msg+='nom '
 				if (Math.random()>0.8)
 					msg+='om '
+			if (Math.random()>0.95)
+				msg = 'Please email help@turntable.fm and ask them to add a way to supress boot messages!'
 			j.bot.boot userid, msg
 		
-		@timers[userid] = setTimeout warn2, (1000*60)
+		@timers[userid] = setTimeout warn1, (1000*60)
 			
 
 	unload: (c, d)=>

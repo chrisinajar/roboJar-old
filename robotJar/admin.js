@@ -35,7 +35,7 @@ var Admin = function(j) {
 			d.name = profile.name;
 			self.handle(function(msg) {
 				j.bot.pm(msg, d.senderid);
-			}, d);
+			}, d, true);
 		});
 	}, j);
 	
@@ -50,7 +50,7 @@ var Admin = function(j) {
 		}
 		return false;
 	}
-	self.handle = function(reply, d) {
+	self.handle = function(reply, d, ispm) {
 		if (d.text.substr(0,1) != "/")
 			return;
 			
@@ -156,8 +156,9 @@ var Admin = function(j) {
 			for (var i = 1; i < cmd.length; ++i)
 				msg += cmd[i]+(i+1 === cmd.length?"":" ");
 			msg = d.name + " says: \"" + msg + "\"";
-			reply(msg);
 			j.speak(msg);
+			if (ispm)
+				reply(msg);
 		});
 	};
 };
