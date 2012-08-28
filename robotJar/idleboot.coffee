@@ -31,7 +31,9 @@ class IdleBoot
 		j = @j
 		userid = d.room.metadata.current_dj
 		user = j.users[userid]
-		idletime = user.getIdleTime()
+		idletime = user?.getIdleTime()
+		if (!idletime)
+			return;
 		
 		console.log 'idle boot', idletime
 		

@@ -61,13 +61,13 @@ var Admin = function(j) {
 				cmd.push(tcmd[i]);
 		}
 		if (cmd[0] == "/eval") j.admin(d.userid, function() {
-			j.log(j.color.red(d.name + " ran " + d.text));
+			j.log(j.color.purple(d.name + " ran " + d.text));
 			j.log(cmd);
 			var torun = '';
 			for(var i=1, l=cmd.length;i<l;++i) {
 				torun += cmd[i] + ' ';
 			}
-			j.log("Executing: " + j.color.red(torun));
+			j.log("Executing: " + j.color.purple(torun));
 			setTimeout(function() {
 				j.run(torun, true);
 			}, 0);

@@ -284,7 +284,6 @@ var j = {
 		restore: function() { return '\u001b[u';}
 	},
 	color: {
-		red: function(m) { return '\u001b[31m'+m+j.color.reset();},
 		green: function(m) { return '\u001b[32m'+m+j.color.reset();},
 		yellow: function(m) { return '\u001b[33m'+m+j.color.reset();},
 		blue: function(m) { return '\u001b[34m'+m+j.color.reset();},
@@ -420,6 +419,12 @@ var j = {
 				var http = require('http');
 				j.db = (new Connection()).database(config.name.toLowerCase());
 				j.util = util;
+				var _boot = bot.boot;
+				bot.boot = function(userid) {
+					if (userid == config.userid)
+						return;
+					_boot.apply(bot, arguments);
+				}
 				j.bot = bot;
 				j['public'].bot = bot;
 				j.run.vm = require('vm');
@@ -538,7 +543,7 @@ var j = {
 		if (!j.isset(j.onSpeak.fun))
 			j.onSpeak.fun = true;
 
-		if (!("idleTimer" in j.users[d.userid]))
+		if (!((j.users[d.userid]) && ("idleTimer" in j.users[d.userid])))
 			j.users[d.userid] = new User(d.userid, d.name, j);
 		else
 			j.users[d.userid].idleTimer = (new Date()).getTime();
