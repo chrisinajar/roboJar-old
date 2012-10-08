@@ -133,7 +133,11 @@ var j = {
 			"roboSalts make my body ready.",
 			"Don't hassle me, I'm a local",
 			"I shot an elephant in my pajamas, how he got in there will haunt me forever.",
-			"HTTP ERROR 418"
+			"HTTP ERROR 418",
+			"What the fuck is juice!?",
+			"Smiff fell asleep so we put a carret in his ass and shaving cream on his balls.",
+			"I did commercials for Coke AND Pepsi. I don't give a fuck!",
+			"JUST GIVE ME SOME CRANCHOPS"
 		]
 	},
 	specialUsers: config.specialUsers,
